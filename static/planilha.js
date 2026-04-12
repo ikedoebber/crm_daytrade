@@ -152,6 +152,19 @@ function renderAll() {
   applyNegativeValueStyling();
 }
 
+// ─── POST-SAVE RENDER ─────────────────────────────
+// Recarrega capital-atual do backend e faz renderAll completo.
+// Usado em todos os saves para garantir que tudo fica sincronizado.
+async function postSaveRender() {
+  try {
+    const capitalAtual = await API.get(`/api/projecao/capital-atual/?month=${STATE.month}`);
+    STATE.capital_atual = capitalAtual || {};
+  } catch (e) {
+    console.error('Erro ao recarregar capital-atual:', e);
+  }
+  renderAll();
+}
+
 // ─── CONFIG INPUTS ────────────────────────────────
 function fillConfigInputs() {
   const c = STATE.config;
@@ -257,7 +270,6 @@ function renderProjecaoTable() {
     const custoOp    = dadoDia.custo_op       ?? 0;
     const impostoRet = dadoDia.imposto_retido ?? 0;
 
-    // Banca Proj: dia 1 usa fórmula linear; a partir de qualquer dia após realizado usa capital real
     const projecaoDia = algumRealizado ? capitalCorrido : banca + meta * d;
 
     const dataLinha = new Date(y, m - 1, d);
@@ -649,7 +661,6 @@ function buildDoughnut(id, labels, data, colors) {
   const ctx = document.getElementById(id);
   if (!ctx) return;
 
-  // Legenda customizada abaixo do canvas
   const wrapper = ctx.parentElement;
   const old = wrapper?.querySelector('.doughnut-legend');
   if (old) old.remove();
@@ -914,10 +925,7 @@ async function saveConfig(statusId) {
     const data   = getConfigFromInputs();
     const result = await API.post('/api/config/upsert/', data);
     STATE.config  = result;
-    renderDashboard();
-    renderProjecaoTable();
-    atualizarCampos();
-    applyNegativeValueStyling();
+    await postSaveRender();
     setStatus(statusId, '✓ Salvo!', 'ok');
   } catch (e) {
     console.error(e);
@@ -943,11 +951,7 @@ async function saveProjecao() {
     });
     const result   = await API.post('/api/projecao/bulk/', items);
     STATE.projecao = result;
-    renderDashboard();
-    renderProjecaoTable();
-    renderCharts();
-    atualizarCampos();
-    applyNegativeValueStyling();
+    await postSaveRender();
     setStatus('saveProjecaoStatus', '✓ Salvo!', 'ok');
   } catch (e) {
     console.error(e);
@@ -961,12 +965,7 @@ async function saveOperacoes() {
     const ops       = collectOpsFromTable();
     const result    = await API.post('/api/operacoes/bulk-sync/', { month: STATE.month, operacoes: ops });
     STATE.operacoes = result;
-    renderOpsDetalhada();
-    renderOpsTable();
-    renderDashboard();
-    renderCharts();
-    atualizarCampos();
-    applyNegativeValueStyling();
+    await postSaveRender();
     setStatus('saveOpsStatus', '✓ Salvo!', 'ok');
   } catch (e) {
     console.error(e);
@@ -1083,6 +1082,8 @@ function bindEvents() {
   });
 
   // ── Refresh em tempo real na tabela de projeção ──
+  // Debounce para os charts (pesados); dashboard e métricas atualizam imediatamente.
+  let _debProjecao = null;
   document.getElementById('projecaoBody')?.addEventListener('input', e => {
     const input = e.target;
     const dia   = parseInt(input.dataset.dia);
@@ -1104,9 +1105,14 @@ function bindEvents() {
       entry.imposto_retido = parseFloat(input.value) || 0;
     }
 
-    // Re-renderiza tabela e recalcula campos
+    // Atualiza imediatamente: tabela, dashboard e métricas
     renderProjecaoTable();
+    renderDashboard();
     atualizarCampos();
+
+    // Charts só redesenham 500ms após parar de digitar (evita travamento)
+    clearTimeout(_debProjecao);
+    _debProjecao = setTimeout(renderCharts, 500);
   });
 
   document.getElementById('saveProjecaoBtn')?.addEventListener('click', saveProjecao);
