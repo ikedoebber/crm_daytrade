@@ -1,0 +1,106 @@
+# ================================
+# PYTHON
+# ================================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribuição / build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtualenv
+venv/
+env/
+ENV/
+.venv/
+
+# ================================
+# DJANGO
+# ================================
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Media / uploads
+media/
+
+# Static files coletados
+staticfiles/
+
+# ================================
+# ENV (SEGURANÇA)
+# ================================
+.env
+.env.*
+!.env.example
+
+# ================================
+# IDE / EDITORES
+# ================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ================================
+# SISTEMA OPERACIONAL
+# ================================
+.DS_Store
+Thumbs.db
+
+# ================================
+# TESTES / COBERTURA
+# ================================
+.coverage
+htmlcov/
+.pytest_cache/
+
+# ================================
+# MYPY / LINT
+# ================================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ================================
+# JUPYTER
+# ================================
+.ipynb_checkpoints
+
+# ================================
+# NODE (caso use frontend)
+# ================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ================================
+# DOCKER
+# ================================
+*.pid
+*.sock
+
+# ================================
+# CACHE / TEMP
+# ================================
+*.tmp
+*.temp
+.cache/
+
+# ================================
+# ARQUIVOS SENSÍVEIS
+# ================================
+*.pem
+*.key
+*.crt
+
+# ================================
+# BACKUPS
+# ================================
+*.bak
+*.swp
