@@ -157,10 +157,14 @@ function renderAll() {
 // Usado em todos os saves para garantir que tudo fica sincronizado.
 async function postSaveRender() {
   try {
-    const capitalAtual = await API.get(`/api/projecao/capital-atual/?month=${STATE.month}`);
+    const [capitalAtual, projecao] = await Promise.all([
+      API.get(`/api/projecao/capital-atual/?month=${STATE.month}`),
+      API.get(`/api/projecao/?month=${STATE.month}`),
+    ]);
     STATE.capital_atual = capitalAtual || {};
+    STATE.projecao      = projecao;
   } catch (e) {
-    console.error('Erro ao recarregar capital-atual:', e);
+    console.error('Erro ao recarregar dados pós-save:', e);
   }
   renderAll();
 }
@@ -226,6 +230,9 @@ function renderDashboard() {
   if (STATE.capital_atual?.capital_final !== undefined) {
     setEl('capitalAtualFromDB', fmt.brl(STATE.capital_atual.capital_final));
   }
+
+  // Lucro líquido calculado em tempo real (operações − custos − impostos)
+  setEl('lucroLiquidoDash', fmt.brl(calc.lucroLiquido()));
 
   const ops    = STATE.operacoes;
   const gains  = ops.filter(o => o.status === 'GAIN').length;
