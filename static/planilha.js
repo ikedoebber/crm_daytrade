@@ -341,6 +341,71 @@ function renderProjecaoTable() {
   }
 }
 
+// ─── ATUALIZA SÓ AS CÉLULAS CALCULADAS DA PROJEÇÃO ──
+// Não toca nos inputs — evita reset de cursor durante digitação.
+function updateProjecaoComputedCells() {
+  const c     = STATE.config;
+  const banca = parseFloat(c.banca_inicial)   || CONFIG_DEFAULTS.banca_inicial;
+  const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
+  const rows  = document.querySelectorAll('#projecaoBody tr');
+
+  let capitalCorrido = banca;
+  let algumRealizado = false;
+
+  rows.forEach(tr => {
+    const d          = parseInt(tr.dataset.dia);
+    const dadoDia    = STATE.projecao.find(p => p.dia === d) || {};
+    const realizado  = dadoDia.realizado      ?? '';
+    const custoOp    = dadoDia.custo_op       ?? 0;
+    const impostoRet = dadoDia.imposto_retido ?? 0;
+
+    const projecaoDia = algumRealizado ? capitalCorrido : banca + meta * d;
+
+    const cells = tr.querySelectorAll('td');
+
+    // col 1 — Banca Proj
+    if (cells[1]) cells[1].textContent = fmt.brl(projecaoDia);
+
+    let capitalFinal = capitalCorrido;
+    let pctMeta      = '—';
+    let retorno      = '—';
+
+    if (realizado !== '' && realizado !== null) {
+      const r  = parseFloat(realizado) || 0;
+      const c2 = parseFloat(custoOp)   || 0;
+      const i  = parseFloat(impostoRet) || 0;
+      capitalFinal   = capitalCorrido + r - c2 - i;
+      pctMeta        = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
+      retorno        = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
+      capitalCorrido = capitalFinal;
+      algumRealizado = true;
+
+      // Cor da td que envolve o input de realizado
+      const realTd = tr.querySelector('.proj-realizado')?.closest('td');
+      if (realTd) realTd.className = parseFloat(realizado) >= 0 ? 'val-positive' : 'val-negative';
+    } else if (algumRealizado) {
+      capitalFinal = capitalCorrido;
+    }
+
+    // col 6 — % Meta
+    if (cells[6]) cells[6].textContent = pctMeta;
+
+    // col 7 — Capital Final
+    if (cells[7]) {
+      if (realizado !== '' && realizado !== null) {
+        cells[7].innerHTML = fmt.brl(capitalFinal);
+      } else if (algumRealizado) {
+        cells[7].innerHTML = `<span style="opacity:0.45">${fmt.brl(capitalFinal)}</span>`;
+      } else {
+        cells[7].textContent = '—';
+      }
+    }
+
+    // col 8 — Retorno
+    if (cells[8]) cells[8].textContent = retorno;
+  });
+}
+
 // ─── OPERAÇÕES (tabela resumo por dia) ────────────
 function renderOpsTable() {
   const tbody = document.getElementById('opsBody');
@@ -1105,8 +1170,8 @@ function bindEvents() {
       entry.imposto_retido = parseFloat(input.value) || 0;
     }
 
-    // Atualiza imediatamente: tabela, dashboard e métricas
-    renderProjecaoTable();
+    // Atualiza células calculadas SEM reconstruir o DOM (preserva cursor/digitação)
+    updateProjecaoComputedCells();
     renderDashboard();
     atualizarCampos();
 
