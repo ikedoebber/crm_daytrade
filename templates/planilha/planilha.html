@@ -1,0 +1,457 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planilha do Trader Eficiente</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="{% static 'planilha.css' %}">
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="header-inner">
+      <div>
+        <div class="header-title">Planilha do <span>Trader</span></div>
+        <div class="header-sub">▸ {{ username }} · Gerenciamento Pessoal</div>
+      </div>
+      <div class="header-actions">
+        <div class="header-badge">
+          <div class="badge-dot"></div>
+          <span id="currentDate"></span>
+        </div>
+        <div class="month-selector">
+          <select id="monthSelect"></select>
+        </div>
+        <button type="button" class="logout-button" onclick="document.getElementById('logoutForm').submit()">Sair</button>
+      </div>
+    </div>
+    <nav>
+      <button type="button" class="tab active" data-tab="dashboard">Dashboard</button>
+      <button type="button" class="tab" data-tab="projecao">Projeção Diária</button>
+      <button type="button" class="tab" data-tab="operacoes">Operações</button>
+      <button type="button" class="tab" data-tab="relatorios">Relatórios</button>
+      <button type="button" class="tab" data-tab="plano">Plano de Trader</button>
+    </nav>
+  </header>
+
+<!-- ======= DASHBOARD ======= -->
+<div id="tab-dashboard" class="tab-content active">
+
+  <!-- Cards de configuração -->
+  <div class="grid-4" style="margin-top:24px">
+    <div class="card">
+      <div class="card-label">Investimento Inicial</div>
+      <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:4px">
+        <span style="font-family:var(--mono);font-size:16px;color:var(--muted)">R$</span>
+        <input id="cfg_banca_inicial" type="number" placeholder="10000" class="cfg-input">
+      </div>
+      <div class="card-sub">Clique para editar</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Objetivo Diário (R$)</div>
+      <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:4px">
+        <span style="font-family:var(--mono);font-size:16px;color:var(--muted)">R$</span>
+        <input id="cfg_objetivo_diario" type="number" placeholder="200" class="cfg-input">
+      </div>
+      <div class="card-sub">Clique para editar</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Dias Úteis</div>
+      <div style="display:flex;align-items:baseline;gap:5px;margin-bottom:4px">
+        <input id="cfg_dias_uteis" type="number" placeholder="20" class="cfg-input" style="width:60px">
+        <span style="font-family:var(--mono);font-size:13px;color:var(--muted)">dias</span>
+      </div>
+      <div class="card-sub">Clique para editar</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Banca Projetada</div>
+      <div class="card-value blue" id="bancaFinal">—</div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;align-items:center;margin-top:20px;margin-bottom:28px;gap:8px;">
+    <button type="button" id="saveDashboardBtn" class="btn-save">💾 Salvar Configurações</button>
+    <span id="saveDashboardStatus" class="save-status"></span>
+  </div>
+
+  <!-- Progresso -->
+  <div class="section-title">Progresso do Mês</div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:16px">
+      <div>
+        <div class="card-label" style="margin-bottom:4px">Dias Percorridos</div>
+        <div style="font-family:var(--mono);font-size:26px;font-weight:700;color:var(--neon);line-height:1">
+          <span id="diasPercorridos">0</span><span style="color:var(--muted);font-size:15px;font-weight:400"> / <span id="totalDiasDisp">20</span></span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="card-label" style="margin-bottom:4px">Capital Atual (Realizado)</div>
+        <div style="font-family:var(--mono);font-size:26px;font-weight:700;line-height:1" id="capitalAtualDisp">R$ —</div>
+      </div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+      </div>
+      <div class="progress-label" style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--muted);font-family:var(--mono)">
+        <span>Início</span><span id="progressPct" style="color:var(--neon);font-weight:700">0%</span><span>Fim do mês</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resumo de operações -->
+  <div class="section-title">Resumo de Operações</div>
+  <div class="ops-grid">
+    <div class="ops-item"><span class="num" style="color:var(--gain)"  id="sumGain">0</span><span class="lbl">Gains</span></div>
+    <div class="ops-item"><span class="num" style="color:var(--loss)"  id="sumLoss">0</span><span class="lbl">Losses</span></div>
+    <div class="ops-item"><span class="num" style="color:var(--zero)"  id="sumZero">0</span><span class="lbl">Zeradas</span></div>
+    <div class="ops-item"><span class="num" style="color:var(--neon2)" id="sumTotal">0</span><span class="lbl">Total Ops</span></div>
+    <div class="ops-item"><span class="num" style="color:var(--text)"  id="sumWR">—</span><span class="lbl">Win Rate</span></div>
+    <div class="ops-item"><span class="num" style="color:var(--neon)"  id="totalPontosWIN">0</span><span class="lbl">Pontos WIN</span></div>
+    <div class="ops-item"><span class="num" style="color:var(--neon3)" id="totalPontosWDO">0</span><span class="lbl">Pontos WDO</span></div>
+    <div class="ops-item"><span class="num" style="color:var(--gain)"  id="totalResultadoDetalhado">R$ 0</span><span class="lbl">Resultado R$</span></div>
+    <div class="ops-item"><span class="num" style="color:var(--neon3)" id="maxOpsPorDia">0</span><span class="lbl">Máx Ops/Dia</span></div>
+    <div class="ops-item"><span class="num" style="color:var(--text)"  id="mediaOpsPorDia">—</span><span class="lbl">Média Ops/Dia</span></div>
+  </div>
+
+  <!-- Limites do plano -->
+  <div class="stats-row">
+    <div class="stat-item">
+      <span class="val" style="color:var(--gain)"  id="dashMetaAprovacao">—</span>
+      <span class="lbl">Meta líquida aprovação</span>
+    </div>
+    <div class="stat-item">
+      <span class="val" style="color:var(--loss)"  id="dashPerdaMaxTotal">—</span>
+      <span class="lbl">Perda máxima total</span>
+    </div>
+    <div class="stat-item">
+      <span class="val" style="color:var(--neon3)" id="dashPerdaDiariaAprovacao">—</span>
+      <span class="lbl">Perda diária após aprovação</span>
+    </div>
+  </div>
+
+  <!-- Gráfico -->
+  <div class="section-title">Evolução da Banca</div>
+  <div class="chart-card">
+
+    <!-- Legenda manual (substituindo a legenda nativa do Chart.js) -->
+    <div style="display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-family:var(--mono)">
+        <svg width="24" height="2" style="flex-shrink:0"><line x1="0" y1="1" x2="24" y2="1" stroke="#6c8cff" stroke-width="1.5" stroke-dasharray="5 4"/></svg>
+        Projeção
+      </span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-family:var(--mono)">
+        <svg width="24" height="2" style="flex-shrink:0"><line x1="0" y1="1" x2="24" y2="1" stroke="#1ee8b7" stroke-width="2"/></svg>
+        Realizado
+      </span>
+    </div>
+
+    <canvas id="chartBanca"
+            height="140"
+            role="img"
+            aria-label="Gráfico de linha: evolução da banca projetada vs realizada ao longo do mês"></canvas>
+  </div>
+
+  <div class="sep"></div>
+</div>
+
+  <!-- ======= PROJEÇÃO DIÁRIA ======= -->
+  <div id="tab-projecao" class="tab-content">
+    <div class="sep"></div>
+    <div class="section-title">Tabela de Projeção + Resultado Real</div>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:16px;">
+      Preencha a coluna <span style="color:var(--neon)">Realizado</span> com o resultado de cada dia.
+    </p>
+    <div class="table-wrap">
+      <table id="tabelaProjecao">
+        <thead>
+          <tr>
+            <th>DIA</th>
+            <th>BANCA PROJ.</th>
+            <th>META DIA</th>
+            <th>REALIZADO</th>
+            <th>CUSTO OP.</th>
+            <th>IMPOSTO RETIDO</th>
+            <th>% META</th>
+            <th>CAPITAL FINAL</th>
+            <th>RETORNO</th>
+          </tr>
+        </thead>
+        <tbody id="projecaoBody"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+      <button type="button" id="saveProjecaoBtn" class="btn-save">💾 Salvar Projeção</button>
+      <span id="saveProjecaoStatus" class="save-status"></span>
+    </div>
+    <div class="sep"></div>
+  </div>
+
+  <!-- ======= OPERAÇÕES ======= -->
+  <div id="tab-operacoes" class="tab-content">
+    <div class="sep"></div>
+    <div class="section-title">Resumo de Performance</div>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-label">Total Gain</div>
+        <div class="card-value" id="perf_gain">0</div>
+        <div class="card-sub">Operações positivas</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Total Loss</div>
+        <div class="card-value red" id="perf_loss">0</div>
+        <div class="card-sub">Operações negativas</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Win Rate</div>
+        <div class="card-value blue" id="perf_wr">—</div>
+        <div class="card-sub">Gain ÷ (Gain + Loss)</div>
+      </div>
+    </div>
+    <div class="sep"></div>
+
+    <div class="section-title">Registro por Dia (Contagem)</div>
+    <div class="table-wrap">
+      <table id="tabelaOps">
+        <thead>
+          <tr>
+            <th rowspan="2">DIA</th>
+            <th colspan="3" style="text-align:center;color:var(--neon2);border-right:1px solid var(--border)">ÍNDICE</th>
+            <th colspan="3" style="text-align:center;color:var(--neon3)">DÓLAR</th>
+            <th rowspan="2">TOTAL OPS</th>
+          </tr>
+          <tr>
+            <th style="color:var(--gain)">GAIN</th>
+            <th style="color:var(--loss)">LOSS</th>
+            <th style="color:var(--zero);border-right:1px solid var(--border)">ZERADA</th>
+            <th style="color:var(--gain)">GAIN</th>
+            <th style="color:var(--loss)">LOSS</th>
+            <th style="color:var(--zero)">ZERADA</th>
+          </tr>
+        </thead>
+        <tbody id="opsBody"></tbody>
+        <tfoot>
+          <tr style="background:rgba(30,232,183,0.06)">
+            <td style="color:var(--neon);font-weight:700;text-align:center">TOTAL</td>
+            <td class="val-positive" id="totIndGain">0</td>
+            <td class="val-negative" id="totIndLoss">0</td>
+            <td class="val-neutral" id="totIndZero">0</td>
+            <td class="val-positive" id="totDolGain">0</td>
+            <td class="val-negative" id="totDolLoss">0</td>
+            <td class="val-neutral" id="totDolZero">0</td>
+            <td style="color:var(--neon2)" id="totAllOps">0</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="section-title" style="margin-top:32px">Registro Detalhado de Operações</div>
+    <div class="table-wrap">
+      <table id="tabelaOpsDetalhada">
+        <thead>
+          <tr>
+            <th>DIA</th>
+            <th>TIPO</th>
+            <th>ATIVO</th>
+            <th>ENTRADA</th>
+            <th>SAÍDA</th>
+            <th>CONTRATOS</th>
+            <th>VALOR PTO</th>
+            <th>PONTOS</th>
+            <th>RESULTADO</th>
+            <th>STATUS</th>
+            <th>AÇÕES</th>
+          </tr>
+        </thead>
+        <tbody id="opsDetalhadaBody"></tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;gap:12px;margin:24px 0;justify-content:flex-end;flex-wrap:wrap;align-items:center;">
+      <button type="button" id="addOpsDetalhadaRow" class="btn-add">+ Adicionar Operação</button>
+      <button type="button" id="saveOpsBtn" class="btn-save">💾 Salvar Operações</button>
+      <span id="saveOpsStatus" class="save-status"></span>
+    </div>
+    <div class="sep"></div>
+  </div>
+
+  <!-- ======= RELATÓRIOS ======= -->
+  <div id="tab-relatorios" class="tab-content">
+    <div class="sep"></div>
+    <div class="section-title">Gestão de Risco</div>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-label">Meta líquida aprovação</div>
+        <input id="cfg_plano_meta_aprovacao" type="number" class="cfg-input" placeholder="1600">
+        <div class="card-sub" style="margin-top:4px">Objetivo de aprovação</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Perda máxima total</div>
+        <input id="cfg_plano_perda_max_total" type="number" class="cfg-input" placeholder="2750">
+        <div class="card-sub" style="margin-top:4px">Stop loss total aprovado</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Perda diária após aprovação</div>
+        <input id="cfg_plano_perda_diaria_aprovacao" type="number" class="cfg-input" placeholder="825">
+        <div class="card-sub" style="margin-top:4px">Limite diário após aprovado</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Projeção Final</div>
+        <div class="card-value blue" id="planoBancaFinal">—</div>
+        <div class="card-sub">Banca Projetada do Mês</div>
+      </div>
+    </div>
+
+    <div class="section-title">Gestão Financeira Empresarial</div>
+    <div class="grid-4">
+      <div class="card"><div class="card-label">Total Custos Operacionais</div><div class="card-value val-negative" id="totalCustosOperacionais">—</div><div class="card-sub">Soma de custos do período</div></div>
+      <div class="card"><div class="card-label">Total Imposto na Fonte</div><div class="card-value val-negative" id="totalImpostoFonte">—</div><div class="card-sub">Soma de imposto retido diário</div></div>
+      <div class="card"><div class="card-label">Imposto de Renda (20% > R$ 20k)</div><div class="card-value val-negative" id="impostoRendaCalculado">—</div><div class="card-sub">Se lucro bruto > R$ 20.000</div></div>
+      <div class="card"><div class="card-label">ROI Total</div><div class="card-value" id="roiTotal">—</div><div class="card-sub">Retorno sobre investimento</div></div>
+      <div class="card"><div class="card-label">Lucro Bruto</div><div class="card-value" id="totalRealizado">—</div><div class="card-sub">Soma dos ganhos de operações</div></div>
+      <div class="card"><div class="card-label">Prejuízo Bruto</div><div class="card-value val-negative" id="prejuizoBruto">—</div><div class="card-sub">Perdas + Custos + Impostos</div></div>
+      <div class="card"><div class="card-label">Lucro Líquido</div><div class="card-value" id="lucroLiquido">—</div><div class="card-sub">Lucro Bruto - Prejuízo Bruto</div></div>
+      <div class="card"><div class="card-label">Fator de Lucro</div><div class="card-value" id="fatorLucro">—</div><div class="card-sub">Gains ÷ Losses</div></div>
+      <div class="card"><div class="card-label">Margem Líquida</div><div class="card-value" id="margemLiquida">—</div><div class="card-sub">Lucro ÷ Receita</div></div>
+      <div class="card"><div class="card-label">Retorno Capital Inicial</div><div class="card-value" id="retornoCapitalInicial">—</div><div class="card-sub">ROI %</div></div>
+      <div class="card"><div class="card-label">Patrimônio Máximo</div><div class="card-value" id="patrimonioMaximo">—</div><div class="card-sub">Peak de capital atingido</div></div>
+      <div class="card"><div class="card-label">Volatilidade Diária</div><div class="card-value" id="volatilidade">—</div><div class="card-sub">Desvio padrão dos retornos</div></div>
+    </div>
+
+    <div class="section-title">Análise de Operações</div>
+    <div class="grid-4">
+      <div class="card"><div class="card-label">Total Operações</div><div class="card-value" id="totalOperacoes">—</div></div>
+      <div class="card"><div class="card-label">Operações Vencedoras</div><div class="card-value" id="operacoesVencedoras">—</div></div>
+      <div class="card"><div class="card-label">Operações Perdedoras</div><div class="card-value val-negative" id="operacoesPerdedoras">—</div></div>
+      <div class="card"><div class="card-label">Operações Zeradas</div><div class="card-value" id="operacoesZeradas">—</div></div>
+      <div class="card"><div class="card-label">% Vencedoras</div><div class="card-value" id="pctOperacoesVencedoras">—</div></div>
+      <div class="card"><div class="card-label">Média Lucro/Prejuízo</div><div class="card-value" id="mediaLucroPrejuizo">—</div></div>
+      <div class="card"><div class="card-label">Média Ops Vencedoras</div><div class="card-value" id="mediaOpsVencedoras">—</div></div>
+      <div class="card"><div class="card-label">Maior Op. Vencedora</div><div class="card-value" id="maiorOpVencedora">—</div></div>
+      <div class="card"><div class="card-label">Média Ops Perdedoras</div><div class="card-value val-negative" id="mediaOpsPerdedoras">—</div></div>
+      <div class="card"><div class="card-label">Maior Op. Perdedora</div><div class="card-value val-negative" id="maiorOpPerdedora">—</div></div>
+      <div class="card"><div class="card-label">Maior Seq. Vencedora</div><div class="card-value" id="maiorSequenciaVencedora">—</div></div>
+      <div class="card"><div class="card-label">Maior Seq. Perdedora</div><div class="card-value val-negative" id="maiorSequenciaPerdedora">—</div></div>
+      <div class="card"><div class="card-label">Máximo de Contratos</div><div class="card-value val-positive" id="maxAcoesContratos">—</div></div>
+    </div>
+
+    <div class="section-title">Análise de Drawdown</div>
+    <div class="grid-2">
+      <div class="card"><div class="card-label">Drawdown Máximo (Topo ao Fundo)</div><div class="card-value val-negative" id="drawdownMaximoValor">—</div><div class="card-sub">Maior queda em R$</div></div>
+      <div class="card"><div class="card-label">Drawdown Máximo %</div><div class="card-value val-negative" id="drawdownMaximoPct">—</div><div class="card-sub">% de queda do saldo</div></div>
+      <div class="card"><div class="card-label">Drawdown Máximo (Trade a Trade)</div><div class="card-value val-negative" id="drawdownTradeValor">—</div><div class="card-sub">Queda entre trades</div></div>
+      <div class="card"><div class="card-label">Drawdown Trade %</div><div class="card-value val-negative" id="drawdownTradePct">—</div><div class="card-sub">% entre trades</div></div>
+    </div>
+
+    <div class="section-title">Gráficos de Desempenho</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:16px;margin-bottom:24px;">
+      <div class="chart-card" style="grid-column:span 2;"><h3>Capital vs Banca Projetada</h3><canvas id="chartCapitalVsProjecao" height="140"></canvas></div>
+      <div class="chart-card"><h3>Taxa de Acerto (%)</h3><canvas id="chartWinRateEvolution" height="140"></canvas></div>
+      <div class="chart-card"><h3>Desempenho em Pontos</h3><canvas id="chartPontosDetalhados" height="140"></canvas></div>
+      <div class="chart-card"><h3>Drawdown Acumulado</h3><canvas id="chartDrawdown" height="140"></canvas></div>
+      <div class="chart-card"><h3>Resultado Financeiro (R$)</h3><canvas id="chartResultadoDetalhados" height="140"></canvas></div>
+      <div class="chart-card"><h3>WIN: Pontos Ganhos vs Perdidos</h3><canvas id="chartWinGanhosPerdidos" height="140"></canvas></div>
+      <div class="chart-card"><h3>WDO: Pontos Ganhos vs Perdidos</h3><canvas id="chartWdoGanhosPerdidos" height="140"></canvas></div>
+      <div class="chart-card"><h3>Ganho vs Perda Monetária</h3><canvas id="chartGainVsLoss" height="140"></canvas></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:24px;">
+      <button type="button" id="saveRelatoriosBtn" class="btn-save">💾 Salvar Configurações de Risco</button>
+      <span id="saveRelatoriosStatus" class="save-status"></span>
+    </div>
+    <div class="sep"></div>
+  </div>
+
+  <!-- ======= PLANO ======= -->
+  <div id="tab-plano" class="tab-content">
+    <div class="sep"></div>
+
+    <div class="section-title">✅ Checklist Pré-Trading</div>
+    <div class="plano-card" style="margin-bottom:24px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px">
+        <div style="padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px">
+          <div style="font-weight:600;color:var(--neon);margin-bottom:8px;font-size:12px">Preparação Mental</div>
+          <ul style="font-size:11px;color:var(--muted);line-height:1.8;margin:0;padding-left:16px">
+            <li>Revisei minhas regras?</li><li>Estou emocionalmente estável?</li>
+            <li>Tenho tempo suficiente hoje?</li><li>Preparei meu setup?</li>
+          </ul>
+        </div>
+        <div style="padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px">
+          <div style="font-weight:600;color:var(--neon);margin-bottom:8px;font-size:12px">Análise Técnica</div>
+          <ul style="font-size:11px;color:var(--muted);line-height:1.8;margin:0;padding-left:16px">
+            <li>Analisei tendência principal?</li><li>Marquei suportes e resistências?</li>
+            <li>Confirmei sinais de entrada?</li><li>Defini meu alvo e stop?</li>
+          </ul>
+        </div>
+        <div style="padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px">
+          <div style="font-weight:600;color:var(--neon);margin-bottom:8px;font-size:12px">Gerenciamento</div>
+          <ul style="font-size:11px;color:var(--muted);line-height:1.8;margin:0;padding-left:16px">
+            <li>Calculei tamanho da posição?</li><li>Chequei meu risco/retorno?</li>
+            <li>Estou dentro dos limites?</li><li>Documentei meu plano?</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">📔 Diário de Trading</div>
+    <div class="plano-card" style="margin-bottom:24px;">
+      <label style="display:block;color:var(--neon);font-size:13px;font-weight:600;margin-bottom:8px;">Anotações e Reflexões Diárias</label>
+      <textarea id="plano_diario" placeholder="Registre suas observações, erros, acertos, sentimentos e aprendizados de cada dia de trading..." style="width:100%;min-height:160px;font-family:var(--mono);font-size:12px;line-height:1.6;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:12px;resize:vertical;outline:none;transition:border-color .2s;"></textarea>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;">💡 Dica: Analise seus erros e acertos para melhorar continuamente</div>
+      <div style="margin-top:12px;text-align:right">
+        <button type="button" id="saveDiarioButton" class="btn-save">Salvar Anotação</button>
+        <span id="saveDiarioStatus" class="save-status"></span>
+      </div>
+    </div>
+
+    <div class="section-title">📚 Histórico do Diário</div>
+    <div id="diarioHistorico" style="margin-bottom:24px;"></div>
+
+    <div class="section-title">⚙️ Configuração e Planejamento</div>
+    <div class="grid-2" style="margin-bottom:24px;">
+      <div class="plano-card">
+        <div class="section-title" style="margin-top:0;font-size:14px">📊 Parâmetros Básicos</div>
+        <div class="plano-item"><div class="plano-diamond">▸</div><div class="plano-text"><strong>Data de Início:</strong> <input id="cfg_plano_start" type="text" class="cfg-input" placeholder="01/04/2026"></div></div>
+        <div class="plano-item"><div class="plano-diamond">▸</div><div class="plano-text"><strong>Capital Inicial:</strong> <input id="cfg_plano_capital" type="number" class="cfg-input" placeholder="10000"></div></div>
+        <div class="plano-item"><div class="plano-diamond">▸</div><div class="plano-text"><strong>Meta Diária:</strong> <input id="cfg_plano_meta" type="number" class="cfg-input" placeholder="200"></div></div>
+        <div class="plano-item"><div class="plano-diamond">▸</div><div class="plano-text"><strong>Ativos Operados:</strong> <input id="cfg_plano_ativos" type="text" class="cfg-input" placeholder="WIN, WDO"></div></div>
+        <div class="plano-item"><div class="plano-diamond">▸</div><div class="plano-text"><strong>Máx. Entradas/Dia:</strong> <input id="cfg_plano_maxentradas" type="number" class="cfg-input" placeholder="5"></div></div>
+        <div class="plano-item"><div class="plano-diamond">▸</div><div class="plano-text"><strong>Stop Loss Diário:</strong> <input id="cfg_plano_stop" type="number" class="cfg-input" placeholder="500"></div></div>
+        <div style="margin-top:16px;text-align:right">
+          <button type="button" id="savePlanoBtn" class="btn-save">💾 Salvar Plano</button>
+          <span id="savePlanoStatus" class="save-status"></span>
+        </div>
+      </div>
+
+      <div class="plano-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div class="section-title" style="margin:0;font-size:14px">📋 Regras e Filtros</div>
+          <button type="button" id="addRegraButton" class="btn-add">+ ADICIONAR REGRA</button>
+        </div>
+        <div id="planoRegras" style="max-height:300px;overflow-y:auto;"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          ✓ Defina filtros de entrada (RSI, MACD, suporte, etc)<br>
+          ✓ Estabeleça critérios de saída e lucro alvo<br>
+          ✓ Documente suas regras de risk management
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<form id="logoutForm" method="post" action="{% url 'logout' %}" style="display:none">
+  {% csrf_token %}
+</form>
+
+<script>
+  // CSRF token para fetch()
+  window.CSRF_TOKEN = '{{ csrf_token }}';
+</script>
+<script src="{% static 'calculos.js' %}"></script>
+<script src="{% static 'planilha.js' %}"></script>
+</body>
+</html>

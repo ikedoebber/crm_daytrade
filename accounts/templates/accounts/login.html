@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Planilha do Trader</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --neon: #1ee8b7;
+    --neon2: #6c8cff;
+    --bg: #080f1a;
+    --surface: #0d1b2a;
+    --border: rgba(30,232,183,0.15);
+    --muted: #4a6080;
+    --text: #c8d8e8;
+    --mono: 'Space Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    background-image: url('/static/images/ChatGPT Image 31 de mar. de 2026, 14_36_44.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .login-wrap {
+    width: 100%;
+    max-width: 400px;
+    padding: 24px;
+  }
+  .logo {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .logo-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+  .logo-title span { color: var(--neon); }
+  .logo-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .card {
+    background: rgba(8,15,26,0.92);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    backdrop-filter: blur(10px);
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--neon);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .field input {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 14px;
+    transition: border-color 0.2s;
+    outline: none;
+  }
+  .field input:focus { border-color: var(--neon); }
+  .btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--neon), #18d4a0);
+    border: none;
+    border-radius: 8px;
+    color: #080f1a;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 12px;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 8px;
+    transition: opacity 0.2s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .error {
+    background: rgba(255,60,80,0.1);
+    border: 1px solid rgba(255,60,80,0.3);
+    border-radius: 8px;
+    color: #ff6b6b;
+    font-size: 12px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+  }
+  .footer-link {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .footer-link a { color: var(--neon); text-decoration: none; }
+  .footer-link a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="logo">
+    <div class="logo-title">Planilha do <span>Trader</span></div>
+    <div class="logo-sub">Sistema de Gestão Profissional</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Acesso ao Sistema</div>
+    {% for message in messages %}
+    <div class="error">{{ message }}</div>
+    {% endfor %}
+    <form method="post">
+      {% csrf_token %}
+      <div class="field">
+        <label>Usuário</label>
+        <input type="text" name="username" autofocus autocomplete="username" placeholder="seu_usuario">
+      </div>
+      <div class="field">
+        <label>Senha</label>
+        <input type="password" name="password" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn">Entrar →</button>
+    </form>
+  </div>
+  <div class="footer-link">
+    Não tem conta? <a href="{% url 'register' %}">Criar cadastro</a>
+  </div>
+</div>
+</body>
+</html>

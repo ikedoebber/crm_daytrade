@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadastro — Planilha do Trader</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --neon:#1ee8b7;--bg:#080f1a;--surface:#0d1b2a;--border:rgba(30,232,183,0.15);--muted:#4a6080;--text:#c8d8e8;--mono:'Space Mono',monospace; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--mono);min-height:100vh;display:flex;align-items:center;justify-content:center}
+  .wrap{width:100%;max-width:400px;padding:24px}
+  .logo{text-align:center;margin-bottom:32px}
+  .logo-title{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--text)}
+  .logo-title span{color:var(--neon)}
+  .logo-sub{font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:.1em;text-transform:uppercase}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px}
+  .card-title{font-size:13px;font-weight:700;color:var(--neon);letter-spacing:.1em;text-transform:uppercase;margin-bottom:24px}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:.08em;text-transform:uppercase}
+  .field input{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 14px;outline:none;transition:border-color .2s}
+  .field input:focus{border-color:var(--neon)}
+  .btn{width:100%;background:linear-gradient(135deg,var(--neon),#18d4a0);border:none;border-radius:8px;color:#080f1a;font-family:var(--mono);font-size:12px;font-weight:700;padding:12px;cursor:pointer;letter-spacing:.1em;text-transform:uppercase;margin-top:8px}
+  .error{background:rgba(255,60,80,.1);border:1px solid rgba(255,60,80,.3);border-radius:8px;color:#ff6b6b;font-size:12px;padding:10px 14px;margin-bottom:16px}
+  .footer-link{text-align:center;margin-top:20px;font-size:11px;color:var(--muted)}
+  .footer-link a{color:var(--neon);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">
+    <div class="logo-title">Planilha do <span>Trader</span></div>
+    <div class="logo-sub">Criar Nova Conta</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Cadastro</div>
+    {% for message in messages %}
+    <div class="error">{{ message }}</div>
+    {% endfor %}
+    <form method="post">
+      {% csrf_token %}
+      <div class="field"><label>Usuário</label><input type="text" name="username" autofocus></div>
+      <div class="field"><label>E-mail</label><input type="email" name="email"></div>
+      <div class="field"><label>Senha</label><input type="password" name="password1"></div>
+      <div class="field"><label>Confirmar Senha</label><input type="password" name="password2"></div>
+      <button type="submit" class="btn">Criar Conta →</button>
+    </form>
+  </div>
+  <div class="footer-link">Já tem conta? <a href="{% url 'login' %}">Entrar</a></div>
+</div>
+</body>
+</html>
