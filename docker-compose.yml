@@ -14,11 +14,11 @@ services:
 
   web:
     build: .
-    command: gunicorn planilha_trader.wsgi:application --bind 0.0.0.0:8000 --reload
+    command: gunicorn planilha_trader.wsgi:application --bind 0.0.0.0:8032 --reload
     volumes:
       - .:/app
     ports:
-      - "8000:8000"
+      - "8032:8032"
     env_file:
       - .env
     depends_on:
