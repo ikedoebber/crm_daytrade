@@ -402,27 +402,11 @@ function renderProjecaoTable() {
   const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
   const dias  = parseInt(c.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
   
-  // DEBUG AGRESSIVO
-  console.log('🔵 renderProjecaoTable() chamado');
-  console.log('   STATE.config:', STATE.config);
-  console.log('   banca:', banca, 'meta:', meta, 'dias:', dias);
-  console.log('   fmt disponível?', typeof fmt !== 'undefined');
-  console.log('   fmt.brl disponível?', typeof fmt?.brl === 'function');
-  console.log('   STATE.projecao.length:', STATE.projecao.length);
-  
-  if (!c.dias_uteis) {
-    console.warn('⚠️ dias_uteis não está configurado, usando default:', dias);
-  }
-  
-  if (isNaN(banca)) console.error('❌ banca é NaN:', c.banca_inicial);
-  if (isNaN(meta)) console.error('❌ meta é NaN:', c.objetivo_diario);
-  if (isNaN(dias)) console.error('❌ dias é NaN:', c.dias_uteis);
-  
   const tbody = document.getElementById('projecaoBody');
   tbody.innerHTML = '';
 
-  let capitalCorrido = banca;
-  let algumRealizado = false;
+  let capitalFinalAnterior = banca;
+  let ultimoCapitalNaoZero = banca;
   const hoje = new Date();
   const [y, m] = STATE.month.split('-').map(Number);
 
@@ -432,14 +416,19 @@ function renderProjecaoTable() {
     const custoOp    = dadoDia.custo_op       ?? 0;
     const impostoRet = dadoDia.imposto_retido ?? 0;
 
-    // ── Projeção: SEMPRE acumula (com realizado ou sem) ──
-    const projecaoDia = capitalCorrido + meta;
+    // ── Projeção: Dia 1 só investimento; Dia 2+ acumula com meta ──
+    let projecaoDia;
+    if (d === 1) {
+      projecaoDia = capitalFinalAnterior;  // Investimento inicial
+    } else {
+      projecaoDia = capitalFinalAnterior + meta;  // Acumula com meta
+    }
 
     const dataLinha = new Date(y, m - 1, d);
     const isHoje    = dataLinha.toDateString() === hoje.toDateString();
     const isPassado = dataLinha < hoje && !isHoje;
 
-    let capitalFinal      = capitalCorrido;
+    let capitalFinal      = capitalFinalAnterior;
     let pctMeta           = '—';
     let retorno           = '—';
     let resultadoDia      = '—';
@@ -450,18 +439,25 @@ function renderProjecaoTable() {
       const c2 = parseFloat(custoOp)   || 0;
       const i  = parseFloat(impostoRet) || 0;
       const net       = r - c2 - i;
-      capitalFinal    = capitalCorrido + net;
+      capitalFinal    = capitalFinalAnterior + net;
       pctMeta         = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
       retorno         = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
       resultadoDia    = fmt.brl(net);
       resultadoDiaClass = net >= 0 ? 'val-positive' : 'val-negative';
-      capitalCorrido  = capitalFinal;
-      algumRealizado  = true;
-    } else {
-      // Sem realizado: atualiza capital para próxima linha (continua projeção)
-      capitalCorrido = capitalCorrido + meta;
-      capitalFinal   = capitalCorrido;
+    } else if (d > 2) {
+      // Sem realizado: projeta com meta (apenas a partir do dia 3)
+      capitalFinal = projecaoDia;
     }
+    
+    // Se capitalFinal for 0, usa anterior não-zero
+    if (capitalFinal === 0 || capitalFinal === null) {
+      capitalFinal = ultimoCapitalNaoZero;
+    } else {
+      ultimoCapitalNaoZero = capitalFinal;
+    }
+    
+    // Para próxima linha: capital final desta é a base
+    capitalFinalAnterior = capitalFinal;
 
     const rowClass  = isHoje ? 'row-hoje' : isPassado ? 'row-passado' : 'row-futuro';
     const realClass = (realizado !== '' && realizado !== null)
@@ -469,23 +465,13 @@ function renderProjecaoTable() {
 
     const capitalFinalCell = (realizado !== '' && realizado !== null)
       ? fmt.brl(capitalFinal)
-      : algumRealizado
+      : (d > 1)
         ? `<span style="opacity:0.45">${fmt.brl(capitalFinal)}</span>`
         : '—';
 
     const tr = document.createElement('tr');
     tr.className   = rowClass;
     tr.dataset.dia = d;
-    
-    // DEBUG: Log para primeira linha
-    if (d === 1) {
-      console.log('📊 Linha 1 da projeção:');
-      console.log('   projecaoDia:', projecaoDia, '-> fmt.brl:', fmt.brl(projecaoDia));
-      console.log('   meta:', meta, '-> fmt.brl:', fmt.brl(meta));
-      console.log('   realizado:', realizado);
-      console.log('   resultadoDia:', resultadoDia);
-      console.log('   capitalFinalCell:', capitalFinalCell);
-    }
     
     tr.innerHTML = `
       <td style="color:var(--neon);font-weight:700">${d}${isHoje ? ' 🔵' : ''}</td>
@@ -535,8 +521,8 @@ function updateProjecaoComputedCells() {
   const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
   const rows  = document.querySelectorAll('#projecaoBody tr');
 
-  let capitalCorrido = banca;
-  let algumRealizado = false;
+  let capitalFinalAnterior = banca;
+  let ultimoCapitalNaoZero = banca;
 
   rows.forEach(tr => {
     const d          = parseInt(tr.dataset.dia);
@@ -545,15 +531,20 @@ function updateProjecaoComputedCells() {
     const custoOp    = dadoDia.custo_op       ?? 0;
     const impostoRet = dadoDia.imposto_retido ?? 0;
 
-    // ── Projeção: SEMPRE acumula (com realizado ou sem) ──
-    const projecaoDia = capitalCorrido + meta;
+    // ── Projeção: Dia 1 só investimento; Dia 2+ acumula com meta ──
+    let projecaoDia;
+    if (d === 1) {
+      projecaoDia = capitalFinalAnterior;  // Investimento inicial
+    } else {
+      projecaoDia = capitalFinalAnterior + meta;  // Acumula com meta
+    }
 
     const cells = tr.querySelectorAll('td');
 
     // col 1 — Banca Proj
     if (cells[1]) cells[1].textContent = fmt.brl(projecaoDia);
 
-    let capitalFinal      = capitalCorrido;
+    let capitalFinal      = capitalFinalAnterior;
     let pctMeta           = '—';
     let retorno           = '—';
     let resultadoDia      = '—';
@@ -564,22 +555,29 @@ function updateProjecaoComputedCells() {
       const c2 = parseFloat(custoOp)   || 0;
       const i  = parseFloat(impostoRet) || 0;
       const net    = r - c2 - i;
-      capitalFinal = capitalCorrido + net;
+      capitalFinal = capitalFinalAnterior + net;
       pctMeta      = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
       retorno      = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
       resultadoDia      = fmt.brl(net);
       resultadoDiaClass = net >= 0 ? 'val-positive' : 'val-negative';
-      capitalCorrido    = capitalFinal;
-      algumRealizado    = true;
 
       // Cor da td que envolve o input de realizado
       const realTd = tr.querySelector('.proj-realizado')?.closest('td');
       if (realTd) realTd.className = parseFloat(realizado) >= 0 ? 'val-positive' : 'val-negative';
-    } else {
-      // Sem realizado: atualiza capital para próxima linha (continua projeção)
-      capitalCorrido = capitalCorrido + meta;
-      capitalFinal   = capitalCorrido;
+    } else if (d > 2) {
+      // Sem realizado: projeta com meta (apenas a partir do dia 3)
+      capitalFinal = projecaoDia;
     }
+    
+    // Se capitalFinal for 0, usa anterior não-zero
+    if (capitalFinal === 0 || capitalFinal === null) {
+      capitalFinal = ultimoCapitalNaoZero;
+    } else {
+      ultimoCapitalNaoZero = capitalFinal;
+    }
+    
+    // Para próxima linha: capital final desta é a base
+    capitalFinalAnterior = capitalFinal;
 
     // col 6 — Resultado Dia
     if (cells[6]) {
@@ -595,7 +593,7 @@ function updateProjecaoComputedCells() {
     if (cells[8]) {
       if (realizado !== '' && realizado !== null) {
         cells[8].innerHTML = fmt.brl(capitalFinal);
-      } else if (algumRealizado) {
+      } else if (d > 1) {
         cells[8].innerHTML = `<span style="opacity:0.45">${fmt.brl(capitalFinal)}</span>`;
       } else {
         cells[8].textContent = '—';
