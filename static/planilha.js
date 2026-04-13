@@ -153,8 +153,6 @@ function renderAll() {
 }
 
 // ─── POST-SAVE RENDER ─────────────────────────────
-// Recarrega capital-atual do backend e faz renderAll completo.
-// Usado em todos os saves para garantir que tudo fica sincronizado.
 async function postSaveRender() {
   try {
     const [capitalAtual, projecao] = await Promise.all([
@@ -182,31 +180,36 @@ function fillConfigInputs() {
     const el = document.getElementById('cfg_' + f);
     if (!el) return;
     const val = c[f];
-    const hasValue = val !== undefined && val !== null && val !== '' && val !== 0;
+    // Aceita 0 como valor válido — apenas undefined/null/'' caem no default
+    const hasValue = val !== undefined && val !== null && val !== '';
     el.value = hasValue ? val : (CONFIG_DEFAULTS[f] ?? '');
   });
 }
 
 function getConfigFromInputs() {
-  const n  = id => parseFloat(document.getElementById(id)?.value) || 0;
+  const n  = id => parseFloat(document.getElementById(id)?.value);
   const s  = id => document.getElementById(id)?.value || '';
-  const ni = id => parseInt(document.getElementById(id)?.value)   || 0;
+  const ni = id => parseInt(document.getElementById(id)?.value);
   const d  = CONFIG_DEFAULTS;
+
+  // Lê banca_inicial aceitando 0 explicitamente
+  const bancaRaw = n('cfg_banca_inicial');
+
   return {
     month:                       STATE.month,
-    banca_inicial:               n('cfg_banca_inicial')               || d.banca_inicial,
+    banca_inicial:               isNaN(bancaRaw) ? d.banca_inicial : bancaRaw,
     objetivo_diario:             n('cfg_objetivo_diario')             || d.objetivo_diario,
     dias_uteis:                  ni('cfg_dias_uteis')                 || d.dias_uteis,
-    plano_meta_aprovacao:        n('cfg_plano_meta_aprovacao'),
-    plano_perda_max_total:       n('cfg_plano_perda_max_total'),
-    plano_perda_diaria_aprovacao:n('cfg_plano_perda_diaria_aprovacao'),
+    plano_meta_aprovacao:        n('cfg_plano_meta_aprovacao')        || 0,
+    plano_perda_max_total:       n('cfg_plano_perda_max_total')       || 0,
+    plano_perda_diaria_aprovacao:n('cfg_plano_perda_diaria_aprovacao')|| 0,
     plano_risco1:                s('cfg_plano_risco1'),
     plano_start:                 s('cfg_plano_start'),
-    plano_capital:               n('cfg_plano_capital'),
-    plano_meta:                  n('cfg_plano_meta'),
+    plano_capital:               n('cfg_plano_capital')               || 0,
+    plano_meta:                  n('cfg_plano_meta')                  || 0,
     plano_ativos:                s('cfg_plano_ativos'),
     plano_maxentradas:           ni('cfg_plano_maxentradas')          || d.plano_maxentradas,
-    plano_stop:                  n('cfg_plano_stop'),
+    plano_stop:                  n('cfg_plano_stop')                  || 0,
   };
 }
 
@@ -231,7 +234,6 @@ function renderDashboard() {
     setEl('capitalAtualFromDB', fmt.brl(STATE.capital_atual.capital_final));
   }
 
-  // Lucro líquido calculado em tempo real (operações − custos − impostos)
   setEl('lucroLiquidoDash', fmt.brl(calc.lucroLiquido()));
 
   const ops    = STATE.operacoes;
@@ -251,6 +253,17 @@ function renderDashboard() {
 }
 
 // ─── PROJEÇÃO DIÁRIA ──────────────────────────────
+// Colunas (índice):
+//  0  DIA
+//  1  BANCA PROJ.
+//  2  META DIA
+//  3  REALIZADO      (input)
+//  4  CUSTO OP.      (input)
+//  5  IMPOSTO RETIDO (input)
+//  6  RESULTADO DIA  ← novo
+//  7  % META
+//  8  CAPITAL FINAL
+//  9  RETORNO
 function renderProjecaoTable() {
   // ── Salva foco antes de reconstruir o DOM ──
   const focusedDia   = document.activeElement?.dataset?.dia;
@@ -260,7 +273,7 @@ function renderProjecaoTable() {
                      : null;
 
   const c     = STATE.config;
-  const banca = parseFloat(c.banca_inicial)   || CONFIG_DEFAULTS.banca_inicial;
+  const banca = parseFloat(c.banca_inicial)   ?? CONFIG_DEFAULTS.banca_inicial;
   const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
   const dias  = parseInt(c.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
   const tbody = document.getElementById('projecaoBody');
@@ -283,19 +296,24 @@ function renderProjecaoTable() {
     const isHoje    = dataLinha.toDateString() === hoje.toDateString();
     const isPassado = dataLinha < hoje && !isHoje;
 
-    let capitalFinal = capitalCorrido;
-    let pctMeta      = '—';
-    let retorno      = '—';
+    let capitalFinal      = capitalCorrido;
+    let pctMeta           = '—';
+    let retorno           = '—';
+    let resultadoDia      = '—';
+    let resultadoDiaClass = '';
 
     if (realizado !== '' && realizado !== null) {
       const r  = parseFloat(realizado) || 0;
       const c2 = parseFloat(custoOp)   || 0;
       const i  = parseFloat(impostoRet) || 0;
-      capitalFinal   = capitalCorrido + r - c2 - i;
-      pctMeta        = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
-      retorno        = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
-      capitalCorrido = capitalFinal;
-      algumRealizado = true;
+      const net       = r - c2 - i;
+      capitalFinal    = capitalCorrido + net;
+      pctMeta         = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
+      retorno         = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
+      resultadoDia    = fmt.brl(net);
+      resultadoDiaClass = net >= 0 ? 'val-positive' : 'val-negative';
+      capitalCorrido  = capitalFinal;
+      algumRealizado  = true;
     } else if (algumRealizado) {
       capitalFinal = capitalCorrido;
     }
@@ -330,6 +348,7 @@ function renderProjecaoTable() {
         <input class="tbl-input proj-imposto" type="number" data-dia="${d}"
                value="${impostoRet || ''}" placeholder="0" step="0.01">
       </td>
+      <td class="${resultadoDiaClass}" style="font-weight:600">${resultadoDia}</td>
       <td>${pctMeta}</td>
       <td style="color:var(--neon2);font-weight:600">${capitalFinalCell}</td>
       <td>${retorno}</td>
@@ -350,9 +369,13 @@ function renderProjecaoTable() {
 
 // ─── ATUALIZA SÓ AS CÉLULAS CALCULADAS DA PROJEÇÃO ──
 // Não toca nos inputs — evita reset de cursor durante digitação.
+// Mapa de colunas:
+//  0  DIA | 1  BANCA PROJ | 2  META DIA | 3  REALIZADO(input)
+//  4  CUSTO(input) | 5  IMPOSTO(input)
+//  6  RESULTADO DIA | 7  % META | 8  CAPITAL FINAL | 9  RETORNO
 function updateProjecaoComputedCells() {
   const c     = STATE.config;
-  const banca = parseFloat(c.banca_inicial)   || CONFIG_DEFAULTS.banca_inicial;
+  const banca = parseFloat(c.banca_inicial)   ?? CONFIG_DEFAULTS.banca_inicial;
   const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
   const rows  = document.querySelectorAll('#projecaoBody tr');
 
@@ -373,19 +396,24 @@ function updateProjecaoComputedCells() {
     // col 1 — Banca Proj
     if (cells[1]) cells[1].textContent = fmt.brl(projecaoDia);
 
-    let capitalFinal = capitalCorrido;
-    let pctMeta      = '—';
-    let retorno      = '—';
+    let capitalFinal      = capitalCorrido;
+    let pctMeta           = '—';
+    let retorno           = '—';
+    let resultadoDia      = '—';
+    let resultadoDiaClass = '';
 
     if (realizado !== '' && realizado !== null) {
       const r  = parseFloat(realizado) || 0;
       const c2 = parseFloat(custoOp)   || 0;
       const i  = parseFloat(impostoRet) || 0;
-      capitalFinal   = capitalCorrido + r - c2 - i;
-      pctMeta        = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
-      retorno        = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
-      capitalCorrido = capitalFinal;
-      algumRealizado = true;
+      const net    = r - c2 - i;
+      capitalFinal = capitalCorrido + net;
+      pctMeta      = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
+      retorno      = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
+      resultadoDia      = fmt.brl(net);
+      resultadoDiaClass = net >= 0 ? 'val-positive' : 'val-negative';
+      capitalCorrido    = capitalFinal;
+      algumRealizado    = true;
 
       // Cor da td que envolve o input de realizado
       const realTd = tr.querySelector('.proj-realizado')?.closest('td');
@@ -394,22 +422,29 @@ function updateProjecaoComputedCells() {
       capitalFinal = capitalCorrido;
     }
 
-    // col 6 — % Meta
-    if (cells[6]) cells[6].textContent = pctMeta;
+    // col 6 — Resultado Dia
+    if (cells[6]) {
+      cells[6].textContent = resultadoDia;
+      cells[6].className   = resultadoDiaClass;
+      if (resultadoDiaClass) cells[6].style.fontWeight = '600';
+    }
 
-    // col 7 — Capital Final
-    if (cells[7]) {
+    // col 7 — % Meta
+    if (cells[7]) cells[7].textContent = pctMeta;
+
+    // col 8 — Capital Final
+    if (cells[8]) {
       if (realizado !== '' && realizado !== null) {
-        cells[7].innerHTML = fmt.brl(capitalFinal);
+        cells[8].innerHTML = fmt.brl(capitalFinal);
       } else if (algumRealizado) {
-        cells[7].innerHTML = `<span style="opacity:0.45">${fmt.brl(capitalFinal)}</span>`;
+        cells[8].innerHTML = `<span style="opacity:0.45">${fmt.brl(capitalFinal)}</span>`;
       } else {
-        cells[7].textContent = '—';
+        cells[8].textContent = '—';
       }
     }
 
-    // col 8 — Retorno
-    if (cells[8]) cells[8].textContent = retorno;
+    // col 9 — Retorno
+    if (cells[9]) cells[9].textContent = retorno;
   });
 }
 
@@ -599,7 +634,6 @@ function destroyChart(id) {
   if (CHARTS[id]) { CHARTS[id].destroy(); delete CHARTS[id]; }
 }
 
-// ─── PALETA ───────────────────────────────────────
 const CHART_COLORS = {
   proj:    '#6c8cff',
   real:    '#1ee8b7',
@@ -611,7 +645,6 @@ const CHART_COLORS = {
   tooltip: 'rgba(15,23,42,0.94)',
 };
 
-// ─── OPÇÕES BASE ──────────────────────────────────
 function chartOptions(yFmt) {
   const fmtY = yFmt === 'pct'
     ? v => v.toFixed(1).replace('.', ',') + '%'
@@ -667,7 +700,6 @@ function chartOptions(yFmt) {
   };
 }
 
-// ─── HELPER: DATASET DE LINHA ─────────────────────
 function _lineDataset(label, data, color, dashed, filled) {
   return {
     label,
@@ -686,7 +718,6 @@ function _lineDataset(label, data, color, dashed, filled) {
   };
 }
 
-// ─── BUILDERS ─────────────────────────────────────
 function buildLineChart(id, labels, datasets) {
   destroyChart(id);
   const ctx = document.getElementById(id);
@@ -788,12 +819,11 @@ function buildDoughnut(id, labels, data, colors) {
 
 // ─── RENDER CHARTS ────────────────────────────────
 function renderCharts() {
-  const banca  = parseFloat(STATE.config.banca_inicial)   || CONFIG_DEFAULTS.banca_inicial;
+  const banca  = parseFloat(STATE.config.banca_inicial)   ?? CONFIG_DEFAULTS.banca_inicial;
   const meta   = parseFloat(STATE.config.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
   const dias   = parseInt(STATE.config.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
   const labels = Array.from({ length: dias }, (_, i) => `D${i + 1}`);
 
-  // — Projeção linear vs realizado acumulado —
   const projecaoData = labels.map((_, i) => banca + meta * (i + 1));
 
   let cap = banca;
@@ -820,7 +850,6 @@ function renderCharts() {
     { label: 'Capital Real', data: realizadoData, borderColor: CHART_COLORS.real },
   ]);
 
-  // — Win Rate acumulado —
   const wrData = [];
   let totalG = 0; let totalL = 0;
   for (let d = 1; d <= dias; d++) {
@@ -833,7 +862,6 @@ function renderCharts() {
     { label: 'Win Rate %', data: wrData, borderColor: CHART_COLORS.win },
   ]);
 
-  // — Pontos por ativo —
   const pontosWinDia = [], pontosWdoDia = [];
   for (let d = 1; d <= dias; d++) {
     const dayOps = STATE.operacoes.filter(o => o.dia === d);
@@ -845,7 +873,6 @@ function renderCharts() {
     { label: 'WDO (pts)', data: pontosWdoDia, backgroundColor: CHART_COLORS.win  + 'cc' },
   ]);
 
-  // — Drawdown acumulado —
   const ddAcum = [];
   let capDD = banca; let peakDD = banca;
   for (let d = 1; d <= dias; d++) {
@@ -864,7 +891,6 @@ function renderCharts() {
     { label: 'Drawdown %', data: ddAcum, borderColor: CHART_COLORS.loss, fill: true },
   ]);
 
-  // — Resultado diário —
   const resultDia = [];
   for (let d = 1; d <= dias; d++) {
     const dayOps = STATE.operacoes.filter(o => o.dia === d);
@@ -878,11 +904,9 @@ function renderCharts() {
     },
   ]);
 
-  // — Ganhos e perdas por ativo —
   buildWinLossChart('chartWinGanhosPerdidos', 'WIN');
   buildWinLossChart('chartWdoGanhosPerdidos', 'WDO');
 
-  // — Doughnut Gain vs Loss —
   const gainTotal = STATE.operacoes.filter(o => o.status === 'GAIN').reduce((a, o) => a + (parseFloat(o.resultado) || 0), 0);
   const lossTotal = Math.abs(STATE.operacoes.filter(o => o.status === 'LOSS').reduce((a, o) => a + (parseFloat(o.resultado) || 0), 0));
   buildDoughnut('chartGainVsLoss', ['Ganhos', 'Perdas'], [gainTotal, lossTotal], [CHART_COLORS.gain + 'cc', CHART_COLORS.loss + 'cc']);
@@ -1154,21 +1178,18 @@ function bindEvents() {
   });
 
   // ── Refresh em tempo real na tabela de projeção ──
-  // Debounce para os charts (pesados); dashboard e métricas atualizam imediatamente.
   let _debProjecao = null;
   document.getElementById('projecaoBody')?.addEventListener('input', e => {
     const input = e.target;
     const dia   = parseInt(input.dataset.dia);
     if (!dia) return;
 
-    // Garante que o dia existe no STATE
     let entry = STATE.projecao.find(p => p.dia === dia);
     if (!entry) {
       entry = { dia, realizado: null, custo_op: 0, imposto_retido: 0 };
       STATE.projecao.push(entry);
     }
 
-    // Atualiza o campo correto no STATE
     if (input.classList.contains('proj-realizado')) {
       entry.realizado = input.value !== '' ? parseFloat(input.value) : null;
     } else if (input.classList.contains('proj-custo')) {
@@ -1177,12 +1198,10 @@ function bindEvents() {
       entry.imposto_retido = parseFloat(input.value) || 0;
     }
 
-    // Atualiza células calculadas SEM reconstruir o DOM (preserva cursor/digitação)
     updateProjecaoComputedCells();
     renderDashboard();
     atualizarCampos();
 
-    // Charts só redesenham 500ms após parar de digitar (evita travamento)
     clearTimeout(_debProjecao);
     _debProjecao = setTimeout(renderCharts, 500);
   });
