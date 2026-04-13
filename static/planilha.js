@@ -142,6 +142,7 @@ async function loadAll(month) {
 function renderAll() {
   fillConfigInputs();
   renderDashboard();
+  renderCalendar();
   renderProjecaoTable();
   renderOpsTable();
   renderOpsDetalhada();
@@ -247,9 +248,133 @@ function renderDashboard() {
   setEl('sumTotal', ops.length);
   setEl('sumWR',    (gains + losses) > 0 ? ((gains / (gains + losses)) * 100).toFixed(1) + '%' : '—');
 
+  // ── Pontos por ativo ──
+  const pontosWin = get.pontos_win();
+  const pontosWdo = get.pontos_wdo();
+  setEl('totalPontosWIN', pontosWin);
+  setEl('totalPontosWDO', pontosWdo);
+
+  // ── Lucro Bruto ──
+  const lucroBruto = calc.lucroBruto();
+  setEl('totalLucroBruto', fmt.brl(lucroBruto));
+
+  // ── Max e Média Ops por Dia ──
+  if (ops.length > 0) {
+    const opsPorDia = {};
+    ops.forEach(op => {
+      const dia = op.dia || 1;
+      opsPorDia[dia] = (opsPorDia[dia] || 0) + 1;
+    });
+    const maxOps = Math.max(...Object.values(opsPorDia));
+    const diasComOps = Object.keys(opsPorDia).length;
+    const mediaOps = (diasComOps > 0 ? (ops.length / diasComOps) : 0).toFixed(1);
+    
+    setEl('maxOpsPorDia', maxOps);
+    setEl('mediaOpsPorDia', mediaOps);
+  } else {
+    setEl('maxOpsPorDia', 0);
+    setEl('mediaOpsPorDia', '—');
+  }
+
   setEl('dashMetaAprovacao',        fmt.brl(c.plano_meta_aprovacao));
   setEl('dashPerdaMaxTotal',        fmt.brl(c.plano_perda_max_total));
   setEl('dashPerdaDiariaAprovacao', fmt.brl(c.plano_perda_diaria_aprovacao));
+}
+
+// ─── CALENDÁRIO DE PERFORMANCE ────────────────────
+function renderCalendar() {
+  const container = document.getElementById('calendarContainer');
+  if (!container) return;
+  
+  container.innerHTML = '';
+  
+  const c    = STATE.config;
+  const meta = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
+  const [y, m] = STATE.month.split('-').map(Number);
+  
+  // Pega total de dias do mês (independente de dias_uteis)
+  const diasDoMes = new Date(y, m, 0).getDate();
+  
+  // Pega primeiro dia da semana (0=domingo)
+  const firstDay = new Date(y, m - 1, 1).getDay();
+  
+  // Adiciona "dias vazios" antes do primeiro dia do mês
+  for (let i = 0; i < firstDay; i++) {
+    const empty = document.createElement('div');
+    empty.className = 'calendar-day';
+    empty.style.opacity = '0';
+    empty.style.pointerEvents = 'none';
+    container.appendChild(empty);
+  }
+  
+  // Cria todos os dias do mês
+  for (let d = 1; d <= diasDoMes; d++) {
+    const dadoDia = STATE.projecao.find(p => p.dia === d);
+    const realizado = dadoDia?.realizado;
+    const capitalFinal = dadoDia?.capital_final;
+    
+    const dia = document.createElement('div');
+    dia.className = 'calendar-day';
+    
+    let status = 'neutral';
+    let icon = '◯';
+    
+    // Determina classe e ícone
+    if (realizado === null || realizado === undefined || realizado === '') {
+      status = 'neutral';
+      icon = '◯';
+    } else {
+      const val = parseFloat(realizado);
+      const pctMeta = meta > 0 ? (val / meta) * 100 : 0;
+      
+      if (val > 0) {
+        status = 'positive';
+        icon = pctMeta >= 100 ? '✓' : '↗';
+      } else if (val < 0) {
+        status = 'negative';
+        icon = '✕';
+      } else {
+        status = 'neutral';
+        icon = '═';
+      }
+    }
+    
+    dia.classList.add(status);
+    
+    // Estrutura do dia melhorada
+    const header = document.createElement('div');
+    header.className = 'calendar-day-header';
+    header.innerHTML = `<span class="calendar-day-icon">${icon}</span><span class="calendar-day-num">${d}</span>`;
+    dia.appendChild(header);
+    
+    // Valor em BRL
+    if (realizado !== null && realizado !== undefined && realizado !== '') {
+      const value = document.createElement('div');
+      value.className = 'calendar-day-value';
+      const val = parseFloat(realizado);
+      value.textContent = fmt.brl(val);
+      dia.appendChild(value);
+    }
+    
+    // Tooltip interativo com mais detalhes
+    if (realizado !== null && realizado !== undefined && realizado !== '') {
+      const tooltip = document.createElement('div');
+      tooltip.className = 'calendar-tooltip';
+      
+      const val = parseFloat(realizado);
+      const pctMeta = meta > 0 ? ((val / meta) * 100).toFixed(0) : 0;
+      const capitalStr = capitalFinal ? fmt.brl(capitalFinal) : '—';
+      
+      tooltip.innerHTML = `
+        <div style="font-weight:600;margin-bottom:4px">${fmt.brl(val)}</div>
+        <div style="font-size:9px;opacity:0.8">Meta: ${pctMeta}%</div>
+        <div style="font-size:9px;opacity:0.8">Capital: ${capitalStr}</div>
+      `;
+      dia.appendChild(tooltip);
+    }
+    
+    container.appendChild(dia);
+  }
 }
 
 // ─── PROJEÇÃO DIÁRIA ──────────────────────────────
@@ -276,6 +401,23 @@ function renderProjecaoTable() {
   const banca = parseFloat(c.banca_inicial)   ?? CONFIG_DEFAULTS.banca_inicial;
   const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
   const dias  = parseInt(c.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
+  
+  // DEBUG AGRESSIVO
+  console.log('🔵 renderProjecaoTable() chamado');
+  console.log('   STATE.config:', STATE.config);
+  console.log('   banca:', banca, 'meta:', meta, 'dias:', dias);
+  console.log('   fmt disponível?', typeof fmt !== 'undefined');
+  console.log('   fmt.brl disponível?', typeof fmt?.brl === 'function');
+  console.log('   STATE.projecao.length:', STATE.projecao.length);
+  
+  if (!c.dias_uteis) {
+    console.warn('⚠️ dias_uteis não está configurado, usando default:', dias);
+  }
+  
+  if (isNaN(banca)) console.error('❌ banca é NaN:', c.banca_inicial);
+  if (isNaN(meta)) console.error('❌ meta é NaN:', c.objetivo_diario);
+  if (isNaN(dias)) console.error('❌ dias é NaN:', c.dias_uteis);
+  
   const tbody = document.getElementById('projecaoBody');
   tbody.innerHTML = '';
 
@@ -290,7 +432,8 @@ function renderProjecaoTable() {
     const custoOp    = dadoDia.custo_op       ?? 0;
     const impostoRet = dadoDia.imposto_retido ?? 0;
 
-    const projecaoDia = algumRealizado ? capitalCorrido : banca + meta * d;
+    // ── Projeção: SEMPRE acumula (com realizado ou sem) ──
+    const projecaoDia = capitalCorrido + meta;
 
     const dataLinha = new Date(y, m - 1, d);
     const isHoje    = dataLinha.toDateString() === hoje.toDateString();
@@ -314,8 +457,10 @@ function renderProjecaoTable() {
       resultadoDiaClass = net >= 0 ? 'val-positive' : 'val-negative';
       capitalCorrido  = capitalFinal;
       algumRealizado  = true;
-    } else if (algumRealizado) {
-      capitalFinal = capitalCorrido;
+    } else {
+      // Sem realizado: atualiza capital para próxima linha (continua projeção)
+      capitalCorrido = capitalCorrido + meta;
+      capitalFinal   = capitalCorrido;
     }
 
     const rowClass  = isHoje ? 'row-hoje' : isPassado ? 'row-passado' : 'row-futuro';
@@ -331,6 +476,17 @@ function renderProjecaoTable() {
     const tr = document.createElement('tr');
     tr.className   = rowClass;
     tr.dataset.dia = d;
+    
+    // DEBUG: Log para primeira linha
+    if (d === 1) {
+      console.log('📊 Linha 1 da projeção:');
+      console.log('   projecaoDia:', projecaoDia, '-> fmt.brl:', fmt.brl(projecaoDia));
+      console.log('   meta:', meta, '-> fmt.brl:', fmt.brl(meta));
+      console.log('   realizado:', realizado);
+      console.log('   resultadoDia:', resultadoDia);
+      console.log('   capitalFinalCell:', capitalFinalCell);
+    }
+    
     tr.innerHTML = `
       <td style="color:var(--neon);font-weight:700">${d}${isHoje ? ' 🔵' : ''}</td>
       <td>${fmt.brl(projecaoDia)}</td>
@@ -389,7 +545,8 @@ function updateProjecaoComputedCells() {
     const custoOp    = dadoDia.custo_op       ?? 0;
     const impostoRet = dadoDia.imposto_retido ?? 0;
 
-    const projecaoDia = algumRealizado ? capitalCorrido : banca + meta * d;
+    // ── Projeção: SEMPRE acumula (com realizado ou sem) ──
+    const projecaoDia = capitalCorrido + meta;
 
     const cells = tr.querySelectorAll('td');
 
@@ -418,8 +575,10 @@ function updateProjecaoComputedCells() {
       // Cor da td que envolve o input de realizado
       const realTd = tr.querySelector('.proj-realizado')?.closest('td');
       if (realTd) realTd.className = parseFloat(realizado) >= 0 ? 'val-positive' : 'val-negative';
-    } else if (algumRealizado) {
-      capitalFinal = capitalCorrido;
+    } else {
+      // Sem realizado: atualiza capital para próxima linha (continua projeção)
+      capitalCorrido = capitalCorrido + meta;
+      capitalFinal   = capitalCorrido;
     }
 
     // col 6 — Resultado Dia

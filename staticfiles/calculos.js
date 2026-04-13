@@ -444,7 +444,7 @@ function atualizarCampos() {
   _setText('lucroLiquido',            fmt.brl(calc.lucroLiquido()));
   _setText('bancaFinal',              fmt.brl(calc.bancaFinal()));
   _setText('planoBancaFinal',         fmt.brl(calc.bancaFinal()));
-  _setText('capitalAtualDisp',        fmt.brl(calc.capitalAtual()));
+  _setText('capitalAtualDisp',        fmt.brl(calc.lucroLiquido()));  // ← DEPOIS
   _setText('lucroEsperado',           fmt.brl(calc.lucroEsperado()));
   _setText('totalRealizado',          fmt.brl(calc.lucroBruto()));
   _setText('prejuizoBruto',           fmt.brl(calc.perdaBruta() + get.custos_totais() + get.impostos_totais()));

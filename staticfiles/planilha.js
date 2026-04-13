@@ -142,6 +142,7 @@ async function loadAll(month) {
 function renderAll() {
   fillConfigInputs();
   renderDashboard();
+  renderCalendar();
   renderProjecaoTable();
   renderOpsTable();
   renderOpsDetalhada();
@@ -150,6 +151,21 @@ function renderAll() {
   renderRegras();
   atualizarCampos();
   applyNegativeValueStyling();
+}
+
+// ─── POST-SAVE RENDER ─────────────────────────────
+async function postSaveRender() {
+  try {
+    const [capitalAtual, projecao] = await Promise.all([
+      API.get(`/api/projecao/capital-atual/?month=${STATE.month}`),
+      API.get(`/api/projecao/?month=${STATE.month}`),
+    ]);
+    STATE.capital_atual = capitalAtual || {};
+    STATE.projecao      = projecao;
+  } catch (e) {
+    console.error('Erro ao recarregar dados pós-save:', e);
+  }
+  renderAll();
 }
 
 // ─── CONFIG INPUTS ────────────────────────────────
@@ -165,31 +181,36 @@ function fillConfigInputs() {
     const el = document.getElementById('cfg_' + f);
     if (!el) return;
     const val = c[f];
-    const hasValue = val !== undefined && val !== null && val !== '' && val !== 0;
+    // Aceita 0 como valor válido — apenas undefined/null/'' caem no default
+    const hasValue = val !== undefined && val !== null && val !== '';
     el.value = hasValue ? val : (CONFIG_DEFAULTS[f] ?? '');
   });
 }
 
 function getConfigFromInputs() {
-  const n  = id => parseFloat(document.getElementById(id)?.value) || 0;
+  const n  = id => parseFloat(document.getElementById(id)?.value);
   const s  = id => document.getElementById(id)?.value || '';
-  const ni = id => parseInt(document.getElementById(id)?.value)   || 0;
+  const ni = id => parseInt(document.getElementById(id)?.value);
   const d  = CONFIG_DEFAULTS;
+
+  // Lê banca_inicial aceitando 0 explicitamente
+  const bancaRaw = n('cfg_banca_inicial');
+
   return {
     month:                       STATE.month,
-    banca_inicial:               n('cfg_banca_inicial')               || d.banca_inicial,
+    banca_inicial:               isNaN(bancaRaw) ? d.banca_inicial : bancaRaw,
     objetivo_diario:             n('cfg_objetivo_diario')             || d.objetivo_diario,
     dias_uteis:                  ni('cfg_dias_uteis')                 || d.dias_uteis,
-    plano_meta_aprovacao:        n('cfg_plano_meta_aprovacao'),
-    plano_perda_max_total:       n('cfg_plano_perda_max_total'),
-    plano_perda_diaria_aprovacao:n('cfg_plano_perda_diaria_aprovacao'),
+    plano_meta_aprovacao:        n('cfg_plano_meta_aprovacao')        || 0,
+    plano_perda_max_total:       n('cfg_plano_perda_max_total')       || 0,
+    plano_perda_diaria_aprovacao:n('cfg_plano_perda_diaria_aprovacao')|| 0,
     plano_risco1:                s('cfg_plano_risco1'),
     plano_start:                 s('cfg_plano_start'),
-    plano_capital:               n('cfg_plano_capital'),
-    plano_meta:                  n('cfg_plano_meta'),
+    plano_capital:               n('cfg_plano_capital')               || 0,
+    plano_meta:                  n('cfg_plano_meta')                  || 0,
     plano_ativos:                s('cfg_plano_ativos'),
     plano_maxentradas:           ni('cfg_plano_maxentradas')          || d.plano_maxentradas,
-    plano_stop:                  n('cfg_plano_stop'),
+    plano_stop:                  n('cfg_plano_stop')                  || 0,
   };
 }
 
@@ -214,6 +235,8 @@ function renderDashboard() {
     setEl('capitalAtualFromDB', fmt.brl(STATE.capital_atual.capital_final));
   }
 
+  setEl('lucroLiquidoDash', fmt.brl(calc.lucroLiquido()));
+
   const ops    = STATE.operacoes;
   const gains  = ops.filter(o => o.status === 'GAIN').length;
   const losses = ops.filter(o => o.status === 'LOSS').length;
@@ -225,12 +248,147 @@ function renderDashboard() {
   setEl('sumTotal', ops.length);
   setEl('sumWR',    (gains + losses) > 0 ? ((gains / (gains + losses)) * 100).toFixed(1) + '%' : '—');
 
+  // ── Pontos por ativo ──
+  const pontosWin = get.pontos_win();
+  const pontosWdo = get.pontos_wdo();
+  setEl('totalPontosWIN', pontosWin);
+  setEl('totalPontosWDO', pontosWdo);
+
+  // ── Lucro Bruto ──
+  const lucroBruto = calc.lucroBruto();
+  setEl('totalLucroBruto', fmt.brl(lucroBruto));
+
+  // ── Max e Média Ops por Dia ──
+  if (ops.length > 0) {
+    const opsPorDia = {};
+    ops.forEach(op => {
+      const dia = op.dia || 1;
+      opsPorDia[dia] = (opsPorDia[dia] || 0) + 1;
+    });
+    const maxOps = Math.max(...Object.values(opsPorDia));
+    const diasComOps = Object.keys(opsPorDia).length;
+    const mediaOps = (diasComOps > 0 ? (ops.length / diasComOps) : 0).toFixed(1);
+    
+    setEl('maxOpsPorDia', maxOps);
+    setEl('mediaOpsPorDia', mediaOps);
+  } else {
+    setEl('maxOpsPorDia', 0);
+    setEl('mediaOpsPorDia', '—');
+  }
+
   setEl('dashMetaAprovacao',        fmt.brl(c.plano_meta_aprovacao));
   setEl('dashPerdaMaxTotal',        fmt.brl(c.plano_perda_max_total));
   setEl('dashPerdaDiariaAprovacao', fmt.brl(c.plano_perda_diaria_aprovacao));
 }
 
+// ─── CALENDÁRIO DE PERFORMANCE ────────────────────
+function renderCalendar() {
+  const container = document.getElementById('calendarContainer');
+  if (!container) return;
+  
+  container.innerHTML = '';
+  
+  const c    = STATE.config;
+  const meta = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
+  const [y, m] = STATE.month.split('-').map(Number);
+  
+  // Pega total de dias do mês (independente de dias_uteis)
+  const diasDoMes = new Date(y, m, 0).getDate();
+  
+  // Pega primeiro dia da semana (0=domingo)
+  const firstDay = new Date(y, m - 1, 1).getDay();
+  
+  // Adiciona "dias vazios" antes do primeiro dia do mês
+  for (let i = 0; i < firstDay; i++) {
+    const empty = document.createElement('div');
+    empty.className = 'calendar-day';
+    empty.style.opacity = '0';
+    empty.style.pointerEvents = 'none';
+    container.appendChild(empty);
+  }
+  
+  // Cria todos os dias do mês
+  for (let d = 1; d <= diasDoMes; d++) {
+    const dadoDia = STATE.projecao.find(p => p.dia === d);
+    const realizado = dadoDia?.realizado;
+    const capitalFinal = dadoDia?.capital_final;
+    
+    const dia = document.createElement('div');
+    dia.className = 'calendar-day';
+    
+    let status = 'neutral';
+    let icon = '◯';
+    
+    // Determina classe e ícone
+    if (realizado === null || realizado === undefined || realizado === '') {
+      status = 'neutral';
+      icon = '◯';
+    } else {
+      const val = parseFloat(realizado);
+      const pctMeta = meta > 0 ? (val / meta) * 100 : 0;
+      
+      if (val > 0) {
+        status = 'positive';
+        icon = pctMeta >= 100 ? '✓' : '↗';
+      } else if (val < 0) {
+        status = 'negative';
+        icon = '✕';
+      } else {
+        status = 'neutral';
+        icon = '═';
+      }
+    }
+    
+    dia.classList.add(status);
+    
+    // Estrutura do dia melhorada
+    const header = document.createElement('div');
+    header.className = 'calendar-day-header';
+    header.innerHTML = `<span class="calendar-day-icon">${icon}</span><span class="calendar-day-num">${d}</span>`;
+    dia.appendChild(header);
+    
+    // Valor em BRL
+    if (realizado !== null && realizado !== undefined && realizado !== '') {
+      const value = document.createElement('div');
+      value.className = 'calendar-day-value';
+      const val = parseFloat(realizado);
+      value.textContent = fmt.brl(val);
+      dia.appendChild(value);
+    }
+    
+    // Tooltip interativo com mais detalhes
+    if (realizado !== null && realizado !== undefined && realizado !== '') {
+      const tooltip = document.createElement('div');
+      tooltip.className = 'calendar-tooltip';
+      
+      const val = parseFloat(realizado);
+      const pctMeta = meta > 0 ? ((val / meta) * 100).toFixed(0) : 0;
+      const capitalStr = capitalFinal ? fmt.brl(capitalFinal) : '—';
+      
+      tooltip.innerHTML = `
+        <div style="font-weight:600;margin-bottom:4px">${fmt.brl(val)}</div>
+        <div style="font-size:9px;opacity:0.8">Meta: ${pctMeta}%</div>
+        <div style="font-size:9px;opacity:0.8">Capital: ${capitalStr}</div>
+      `;
+      dia.appendChild(tooltip);
+    }
+    
+    container.appendChild(dia);
+  }
+}
+
 // ─── PROJEÇÃO DIÁRIA ──────────────────────────────
+// Colunas (índice):
+//  0  DIA
+//  1  BANCA PROJ.
+//  2  META DIA
+//  3  REALIZADO      (input)
+//  4  CUSTO OP.      (input)
+//  5  IMPOSTO RETIDO (input)
+//  6  RESULTADO DIA  ← novo
+//  7  % META
+//  8  CAPITAL FINAL
+//  9  RETORNO
 function renderProjecaoTable() {
   // ── Salva foco antes de reconstruir o DOM ──
   const focusedDia   = document.activeElement?.dataset?.dia;
@@ -240,9 +398,26 @@ function renderProjecaoTable() {
                      : null;
 
   const c     = STATE.config;
-  const banca = parseFloat(c.banca_inicial)   || CONFIG_DEFAULTS.banca_inicial;
+  const banca = parseFloat(c.banca_inicial)   ?? CONFIG_DEFAULTS.banca_inicial;
   const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
   const dias  = parseInt(c.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
+  
+  // DEBUG AGRESSIVO
+  console.log('🔵 renderProjecaoTable() chamado');
+  console.log('   STATE.config:', STATE.config);
+  console.log('   banca:', banca, 'meta:', meta, 'dias:', dias);
+  console.log('   fmt disponível?', typeof fmt !== 'undefined');
+  console.log('   fmt.brl disponível?', typeof fmt?.brl === 'function');
+  console.log('   STATE.projecao.length:', STATE.projecao.length);
+  
+  if (!c.dias_uteis) {
+    console.warn('⚠️ dias_uteis não está configurado, usando default:', dias);
+  }
+  
+  if (isNaN(banca)) console.error('❌ banca é NaN:', c.banca_inicial);
+  if (isNaN(meta)) console.error('❌ meta é NaN:', c.objetivo_diario);
+  if (isNaN(dias)) console.error('❌ dias é NaN:', c.dias_uteis);
+  
   const tbody = document.getElementById('projecaoBody');
   tbody.innerHTML = '';
 
@@ -257,28 +432,35 @@ function renderProjecaoTable() {
     const custoOp    = dadoDia.custo_op       ?? 0;
     const impostoRet = dadoDia.imposto_retido ?? 0;
 
-    // Banca Proj: dia 1 usa fórmula linear; a partir de qualquer dia após realizado usa capital real
-    const projecaoDia = algumRealizado ? capitalCorrido : banca + meta * d;
+    // ── Projeção: SEMPRE acumula (com realizado ou sem) ──
+    const projecaoDia = capitalCorrido + meta;
 
     const dataLinha = new Date(y, m - 1, d);
     const isHoje    = dataLinha.toDateString() === hoje.toDateString();
     const isPassado = dataLinha < hoje && !isHoje;
 
-    let capitalFinal = capitalCorrido;
-    let pctMeta      = '—';
-    let retorno      = '—';
+    let capitalFinal      = capitalCorrido;
+    let pctMeta           = '—';
+    let retorno           = '—';
+    let resultadoDia      = '—';
+    let resultadoDiaClass = '';
 
     if (realizado !== '' && realizado !== null) {
       const r  = parseFloat(realizado) || 0;
       const c2 = parseFloat(custoOp)   || 0;
       const i  = parseFloat(impostoRet) || 0;
-      capitalFinal   = capitalCorrido + r - c2 - i;
-      pctMeta        = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
-      retorno        = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
-      capitalCorrido = capitalFinal;
-      algumRealizado = true;
-    } else if (algumRealizado) {
-      capitalFinal = capitalCorrido;
+      const net       = r - c2 - i;
+      capitalFinal    = capitalCorrido + net;
+      pctMeta         = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
+      retorno         = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
+      resultadoDia    = fmt.brl(net);
+      resultadoDiaClass = net >= 0 ? 'val-positive' : 'val-negative';
+      capitalCorrido  = capitalFinal;
+      algumRealizado  = true;
+    } else {
+      // Sem realizado: atualiza capital para próxima linha (continua projeção)
+      capitalCorrido = capitalCorrido + meta;
+      capitalFinal   = capitalCorrido;
     }
 
     const rowClass  = isHoje ? 'row-hoje' : isPassado ? 'row-passado' : 'row-futuro';
@@ -294,6 +476,17 @@ function renderProjecaoTable() {
     const tr = document.createElement('tr');
     tr.className   = rowClass;
     tr.dataset.dia = d;
+    
+    // DEBUG: Log para primeira linha
+    if (d === 1) {
+      console.log('📊 Linha 1 da projeção:');
+      console.log('   projecaoDia:', projecaoDia, '-> fmt.brl:', fmt.brl(projecaoDia));
+      console.log('   meta:', meta, '-> fmt.brl:', fmt.brl(meta));
+      console.log('   realizado:', realizado);
+      console.log('   resultadoDia:', resultadoDia);
+      console.log('   capitalFinalCell:', capitalFinalCell);
+    }
+    
     tr.innerHTML = `
       <td style="color:var(--neon);font-weight:700">${d}${isHoje ? ' 🔵' : ''}</td>
       <td>${fmt.brl(projecaoDia)}</td>
@@ -311,6 +504,7 @@ function renderProjecaoTable() {
         <input class="tbl-input proj-imposto" type="number" data-dia="${d}"
                value="${impostoRet || ''}" placeholder="0" step="0.01">
       </td>
+      <td class="${resultadoDiaClass}" style="font-weight:600">${resultadoDia}</td>
       <td>${pctMeta}</td>
       <td style="color:var(--neon2);font-weight:600">${capitalFinalCell}</td>
       <td>${retorno}</td>
@@ -327,6 +521,90 @@ function renderProjecaoTable() {
       el.setSelectionRange(len, len);
     }
   }
+}
+
+// ─── ATUALIZA SÓ AS CÉLULAS CALCULADAS DA PROJEÇÃO ──
+// Não toca nos inputs — evita reset de cursor durante digitação.
+// Mapa de colunas:
+//  0  DIA | 1  BANCA PROJ | 2  META DIA | 3  REALIZADO(input)
+//  4  CUSTO(input) | 5  IMPOSTO(input)
+//  6  RESULTADO DIA | 7  % META | 8  CAPITAL FINAL | 9  RETORNO
+function updateProjecaoComputedCells() {
+  const c     = STATE.config;
+  const banca = parseFloat(c.banca_inicial)   ?? CONFIG_DEFAULTS.banca_inicial;
+  const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
+  const rows  = document.querySelectorAll('#projecaoBody tr');
+
+  let capitalCorrido = banca;
+  let algumRealizado = false;
+
+  rows.forEach(tr => {
+    const d          = parseInt(tr.dataset.dia);
+    const dadoDia    = STATE.projecao.find(p => p.dia === d) || {};
+    const realizado  = dadoDia.realizado      ?? '';
+    const custoOp    = dadoDia.custo_op       ?? 0;
+    const impostoRet = dadoDia.imposto_retido ?? 0;
+
+    // ── Projeção: SEMPRE acumula (com realizado ou sem) ──
+    const projecaoDia = capitalCorrido + meta;
+
+    const cells = tr.querySelectorAll('td');
+
+    // col 1 — Banca Proj
+    if (cells[1]) cells[1].textContent = fmt.brl(projecaoDia);
+
+    let capitalFinal      = capitalCorrido;
+    let pctMeta           = '—';
+    let retorno           = '—';
+    let resultadoDia      = '—';
+    let resultadoDiaClass = '';
+
+    if (realizado !== '' && realizado !== null) {
+      const r  = parseFloat(realizado) || 0;
+      const c2 = parseFloat(custoOp)   || 0;
+      const i  = parseFloat(impostoRet) || 0;
+      const net    = r - c2 - i;
+      capitalFinal = capitalCorrido + net;
+      pctMeta      = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
+      retorno      = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
+      resultadoDia      = fmt.brl(net);
+      resultadoDiaClass = net >= 0 ? 'val-positive' : 'val-negative';
+      capitalCorrido    = capitalFinal;
+      algumRealizado    = true;
+
+      // Cor da td que envolve o input de realizado
+      const realTd = tr.querySelector('.proj-realizado')?.closest('td');
+      if (realTd) realTd.className = parseFloat(realizado) >= 0 ? 'val-positive' : 'val-negative';
+    } else {
+      // Sem realizado: atualiza capital para próxima linha (continua projeção)
+      capitalCorrido = capitalCorrido + meta;
+      capitalFinal   = capitalCorrido;
+    }
+
+    // col 6 — Resultado Dia
+    if (cells[6]) {
+      cells[6].textContent = resultadoDia;
+      cells[6].className   = resultadoDiaClass;
+      if (resultadoDiaClass) cells[6].style.fontWeight = '600';
+    }
+
+    // col 7 — % Meta
+    if (cells[7]) cells[7].textContent = pctMeta;
+
+    // col 8 — Capital Final
+    if (cells[8]) {
+      if (realizado !== '' && realizado !== null) {
+        cells[8].innerHTML = fmt.brl(capitalFinal);
+      } else if (algumRealizado) {
+        cells[8].innerHTML = `<span style="opacity:0.45">${fmt.brl(capitalFinal)}</span>`;
+      } else {
+        cells[8].textContent = '—';
+      }
+    }
+
+    // col 9 — Retorno
+    if (cells[9]) cells[9].textContent = retorno;
+  });
 }
 
 // ─── OPERAÇÕES (tabela resumo por dia) ────────────
@@ -515,11 +793,195 @@ function destroyChart(id) {
   if (CHARTS[id]) { CHARTS[id].destroy(); delete CHARTS[id]; }
 }
 
+const CHART_COLORS = {
+  proj:    '#6c8cff',
+  real:    '#1ee8b7',
+  win:     '#f7c948',
+  gain:    '#22d987',
+  loss:    '#ff4c6a',
+  wdo:     '#fb923c',
+  grid:    'rgba(148,163,184,0.07)',
+  tooltip: 'rgba(15,23,42,0.94)',
+};
+
+function chartOptions(yFmt) {
+  const fmtY = yFmt === 'pct'
+    ? v => v.toFixed(1).replace('.', ',') + '%'
+    : v => 'R$\u00a0' + v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+  return {
+    responsive: true,
+    maintainAspectRatio: true,
+    animation: { duration: 550, easing: 'easeOutCubic' },
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: CHART_COLORS.tooltip,
+        borderColor: 'rgba(100,116,139,0.25)',
+        borderWidth: 1,
+        padding: { x: 12, y: 9 },
+        titleColor: '#94a3b8',
+        bodyColor: '#e2e8f0',
+        titleFont:  { family: 'Space Mono', size: 10, weight: '500' },
+        bodyFont:   { family: 'Space Mono', size: 11, weight: '500' },
+        cornerRadius: 6,
+        usePointStyle: true,
+        pointStyle: 'circle',
+        boxWidth: 7,
+        boxHeight: 7,
+      },
+      filler: { propagate: true },
+    },
+    scales: {
+      x: {
+        ticks: {
+          color: '#4e6278',
+          font: { family: 'Space Mono', size: 9 },
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit: 10,
+        },
+        grid:   { color: CHART_COLORS.grid, drawBorder: false },
+        border: { display: false },
+      },
+      y: {
+        ticks: {
+          color: '#4e6278',
+          font: { family: 'Space Mono', size: 9 },
+          callback: fmtY,
+        },
+        grid:         { color: CHART_COLORS.grid, drawBorder: false },
+        border:       { display: false },
+        beginAtZero:  false,
+      },
+    },
+  };
+}
+
+function _lineDataset(label, data, color, dashed, filled) {
+  return {
+    label,
+    data,
+    borderColor: color,
+    backgroundColor: filled ? color + '12' : 'transparent',
+    fill: filled,
+    borderWidth: dashed ? 1.5 : 2,
+    borderDash: dashed ? [5, 5] : [],
+    pointRadius: data.map(v => v !== null ? 3 : 0),
+    pointHoverRadius: 5,
+    pointBackgroundColor: color,
+    pointBorderWidth: 0,
+    tension: 0.4,
+    spanGaps: false,
+  };
+}
+
+function buildLineChart(id, labels, datasets) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+
+  const palette = [CHART_COLORS.proj, CHART_COLORS.real, CHART_COLORS.win, CHART_COLORS.wdo];
+  const isPct   = datasets.some(d => (d.label || '').includes('%'));
+
+  const builtDatasets = datasets.map((ds, i) => {
+    const color  = ds.borderColor || palette[i % palette.length];
+    const dashed = i === 0 && datasets.length > 1;
+    const filled = !!ds.fill;
+    return _lineDataset(ds.label || '', ds.data, color, dashed, filled);
+  });
+
+  CHARTS[id] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: builtDatasets },
+    options: chartOptions(isPct ? 'pct' : 'brl'),
+  });
+}
+
+function buildBarChart(id, labels, datasets) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+
+  const builtDatasets = datasets.map(ds => ({
+    ...ds,
+    borderRadius:  5,
+    borderSkipped: false,
+    borderWidth:   0,
+  }));
+
+  CHARTS[id] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: builtDatasets },
+    options: chartOptions('brl'),
+  });
+}
+
+function buildDoughnut(id, labels, data, colors) {
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+
+  const wrapper = ctx.parentElement;
+  const old = wrapper?.querySelector('.doughnut-legend');
+  if (old) old.remove();
+
+  const total = data.reduce((a, b) => a + b, 0);
+  const legendDiv = document.createElement('div');
+  legendDiv.className = 'doughnut-legend';
+  legendDiv.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:10px;';
+  labels.forEach((lbl, i) => {
+    const pct  = total > 0 ? ((data[i] / total) * 100).toFixed(1) : '0';
+    const item = document.createElement('span');
+    item.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:11px;color:#64748b;font-family:Space Mono,monospace';
+    item.innerHTML = `<span style="width:8px;height:8px;border-radius:2px;background:${colors[i]};display:inline-block;flex-shrink:0;"></span>${lbl}&nbsp;<strong style="color:#94a3b8;font-weight:500">${pct}%</strong>`;
+    legendDiv.appendChild(item);
+  });
+  if (wrapper) wrapper.appendChild(legendDiv);
+
+  CHARTS[id] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderColor: 'transparent',
+        borderWidth: 0,
+        hoverOffset: 8,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '68%',
+      animation: { animateRotate: true, animateScale: false, duration: 600 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: CHART_COLORS.tooltip,
+          borderColor: 'rgba(100,116,139,0.25)',
+          borderWidth: 1,
+          padding: { x: 12, y: 9 },
+          titleColor: '#94a3b8',
+          bodyColor: '#e2e8f0',
+          titleFont:  { family: 'Space Mono', size: 10 },
+          bodyFont:   { family: 'Space Mono', size: 11 },
+          cornerRadius: 6,
+          callbacks: { label: c => ` ${c.label}: ${fmt.brl(c.parsed)}` },
+        },
+      },
+    },
+  });
+}
+
+// ─── RENDER CHARTS ────────────────────────────────
 function renderCharts() {
-  const banca  = parseFloat(STATE.config.banca_inicial)   || CONFIG_DEFAULTS.banca_inicial;
+  const banca  = parseFloat(STATE.config.banca_inicial)   ?? CONFIG_DEFAULTS.banca_inicial;
   const meta   = parseFloat(STATE.config.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
   const dias   = parseInt(STATE.config.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
-  const labels = Array.from({ length: dias }, (_, i) => `D${i+1}`);
+  const labels = Array.from({ length: dias }, (_, i) => `D${i + 1}`);
 
   const projecaoData = labels.map((_, i) => banca + meta * (i + 1));
 
@@ -529,8 +991,8 @@ function renderCharts() {
     const pDia = STATE.projecao.find(p => p.dia === d);
     if (pDia && pDia.realizado !== null && pDia.realizado !== '') {
       cap += (parseFloat(pDia.realizado) || 0)
-           - (parseFloat(pDia.custo_op) || 0)
-           - (parseFloat(pDia.imposto_retido) || 0);
+           - (parseFloat(pDia.custo_op)       || 0)
+           - (parseFloat(pDia.imposto_retido)  || 0);
       realizadoData.push(cap);
     } else {
       realizadoData.push(null);
@@ -538,13 +1000,13 @@ function renderCharts() {
   }
 
   buildLineChart('chartBanca', labels, [
-    { label: 'Projeção',  data: projecaoData,  borderColor: '#6c8cff', fill: false },
-    { label: 'Realizado', data: realizadoData, borderColor: '#1ee8b7', fill: false, spanGaps: false },
+    { label: 'Projeção',  data: projecaoData,  borderColor: CHART_COLORS.proj },
+    { label: 'Realizado', data: realizadoData, borderColor: CHART_COLORS.real },
   ]);
 
   buildLineChart('chartCapitalVsProjecao', labels, [
-    { label: 'Projeção',     data: projecaoData,  borderColor: '#6c8cff', fill: false },
-    { label: 'Capital Real', data: realizadoData, borderColor: '#1ee8b7', fill: false, spanGaps: false },
+    { label: 'Projeção',     data: projecaoData,  borderColor: CHART_COLORS.proj },
+    { label: 'Capital Real', data: realizadoData, borderColor: CHART_COLORS.real },
   ]);
 
   const wrData = [];
@@ -556,18 +1018,18 @@ function renderCharts() {
     wrData.push((totalG + totalL) > 0 ? (totalG / (totalG + totalL) * 100) : null);
   }
   buildLineChart('chartWinRateEvolution', labels, [
-    { label: 'Win Rate %', data: wrData, borderColor: '#f7c948', fill: false, spanGaps: false },
+    { label: 'Win Rate %', data: wrData, borderColor: CHART_COLORS.win },
   ]);
 
   const pontosWinDia = [], pontosWdoDia = [];
   for (let d = 1; d <= dias; d++) {
     const dayOps = STATE.operacoes.filter(o => o.dia === d);
-    pontosWinDia.push(dayOps.filter(o => o.ativo === 'WIN').reduce((a,o) => a + (parseFloat(o.pontos)||0), 0) || null);
-    pontosWdoDia.push(dayOps.filter(o => o.ativo === 'WDO').reduce((a,o) => a + (parseFloat(o.pontos)||0), 0) || null);
+    pontosWinDia.push(dayOps.filter(o => o.ativo === 'WIN').reduce((a, o) => a + (parseFloat(o.pontos) || 0), 0) || null);
+    pontosWdoDia.push(dayOps.filter(o => o.ativo === 'WDO').reduce((a, o) => a + (parseFloat(o.pontos) || 0), 0) || null);
   }
   buildBarChart('chartPontosDetalhados', labels, [
-    { label: 'WIN (pts)', data: pontosWinDia, backgroundColor: 'rgba(30,232,183,0.5)' },
-    { label: 'WDO (pts)', data: pontosWdoDia, backgroundColor: 'rgba(247,201,72,0.5)' },
+    { label: 'WIN (pts)', data: pontosWinDia, backgroundColor: CHART_COLORS.real + 'cc' },
+    { label: 'WDO (pts)', data: pontosWdoDia, backgroundColor: CHART_COLORS.win  + 'cc' },
   ]);
 
   const ddAcum = [];
@@ -575,7 +1037,9 @@ function renderCharts() {
   for (let d = 1; d <= dias; d++) {
     const pDia = STATE.projecao.find(p => p.dia === d);
     if (pDia && pDia.realizado !== null && pDia.realizado !== '') {
-      capDD += (parseFloat(pDia.realizado)||0) - (parseFloat(pDia.custo_op)||0) - (parseFloat(pDia.imposto_retido)||0);
+      capDD += (parseFloat(pDia.realizado)       || 0)
+             - (parseFloat(pDia.custo_op)         || 0)
+             - (parseFloat(pDia.imposto_retido)   || 0);
       if (capDD > peakDD) peakDD = capDD;
       ddAcum.push(peakDD > 0 ? -((peakDD - capDD) / peakDD * 100) : 0);
     } else {
@@ -583,169 +1047,43 @@ function renderCharts() {
     }
   }
   buildLineChart('chartDrawdown', labels, [
-    { label: 'Drawdown %', data: ddAcum, borderColor: '#ff4c6a', fill: true, backgroundColor: 'rgba(255,76,106,0.08)', spanGaps: false },
+    { label: 'Drawdown %', data: ddAcum, borderColor: CHART_COLORS.loss, fill: true },
   ]);
 
   const resultDia = [];
   for (let d = 1; d <= dias; d++) {
     const dayOps = STATE.operacoes.filter(o => o.dia === d);
-    resultDia.push(dayOps.length ? dayOps.reduce((a,o) => a + (parseFloat(o.resultado)||0), 0) : null);
+    resultDia.push(dayOps.length ? dayOps.reduce((a, o) => a + (parseFloat(o.resultado) || 0), 0) : null);
   }
   buildBarChart('chartResultadoDetalhados', labels, [
     {
       label: 'Resultado R$',
       data:  resultDia,
-      backgroundColor: resultDia.map(v => (v ?? 0) >= 0 ? 'rgba(34,217,135,0.5)' : 'rgba(255,76,106,0.5)'),
+      backgroundColor: resultDia.map(v => (v ?? 0) >= 0 ? CHART_COLORS.gain + 'bf' : CHART_COLORS.loss + 'bf'),
     },
   ]);
 
   buildWinLossChart('chartWinGanhosPerdidos', 'WIN');
   buildWinLossChart('chartWdoGanhosPerdidos', 'WDO');
 
-  const gainTotal = STATE.operacoes.filter(o => o.status === 'GAIN').reduce((a,o) => a + (parseFloat(o.resultado)||0), 0);
-  const lossTotal = Math.abs(STATE.operacoes.filter(o => o.status === 'LOSS').reduce((a,o) => a + (parseFloat(o.resultado)||0), 0));
-  buildDoughnut('chartGainVsLoss', ['Ganhos','Perdas'], [gainTotal, lossTotal], ['rgba(34,217,135,0.7)','rgba(255,76,106,0.7)']);
+  const gainTotal = STATE.operacoes.filter(o => o.status === 'GAIN').reduce((a, o) => a + (parseFloat(o.resultado) || 0), 0);
+  const lossTotal = Math.abs(STATE.operacoes.filter(o => o.status === 'LOSS').reduce((a, o) => a + (parseFloat(o.resultado) || 0), 0));
+  buildDoughnut('chartGainVsLoss', ['Ganhos', 'Perdas'], [gainTotal, lossTotal], [CHART_COLORS.gain + 'cc', CHART_COLORS.loss + 'cc']);
 }
 
 function buildWinLossChart(canvasId, ativo) {
   const dias   = parseInt(STATE.config.dias_uteis) || CONFIG_DEFAULTS.dias_uteis;
-  const labels = Array.from({ length: dias }, (_, i) => `D${i+1}`);
+  const labels = Array.from({ length: dias }, (_, i) => `D${i + 1}`);
   const ganhos = [], perdas = [];
   for (let d = 1; d <= dias; d++) {
     const dayOps = STATE.operacoes.filter(o => o.dia === d && o.ativo === ativo);
-    ganhos.push(dayOps.filter(o => (parseFloat(o.pontos)||0) > 0).reduce((a,o) => a + (parseFloat(o.pontos)||0), 0) || null);
-    perdas.push(dayOps.filter(o => (parseFloat(o.pontos)||0) < 0).reduce((a,o) => a + (parseFloat(o.pontos)||0), 0) || null);
+    ganhos.push(dayOps.filter(o => (parseFloat(o.pontos) || 0) > 0).reduce((a, o) => a + (parseFloat(o.pontos) || 0), 0) || null);
+    perdas.push(dayOps.filter(o => (parseFloat(o.pontos) || 0) < 0).reduce((a, o) => a + (parseFloat(o.pontos) || 0), 0) || null);
   }
   buildBarChart(canvasId, labels, [
-    { label: 'Ganhos (pts)', data: ganhos, backgroundColor: 'rgba(34,217,135,0.5)' },
-    { label: 'Perdas (pts)', data: perdas, backgroundColor: 'rgba(255,76,106,0.5)' },
+    { label: 'Ganhos (pts)', data: ganhos, backgroundColor: CHART_COLORS.gain + 'bf' },
+    { label: 'Perdas (pts)', data: perdas, backgroundColor: CHART_COLORS.loss + 'bf' },
   ]);
-}
-
-function buildLineChart(id, labels, datasets) {
-  destroyChart(id);
-  const ctx = document.getElementById(id);
-  if (!ctx) return;
-  datasets.forEach(ds => {
-    ds.tension          = ds.tension     ?? 0.4;
-    ds.pointRadius      = ds.pointRadius ?? 4;
-    ds.pointHoverRadius = 6;
-    ds.pointBackgroundColor = ds.pointBackgroundColor ?? '#fff';
-    ds.pointBorderWidth = ds.pointBorderWidth ?? 2;
-    ds.pointBorderColor = ds.pointBorderColor ?? ds.borderColor;
-    ds.borderWidth      = ds.borderWidth ?? 2.5;
-    ds.fill             = ds.fill !== undefined ? ds.fill : false;
-  });
-  CHARTS[id] = new Chart(ctx, { type: 'line', data: { labels, datasets }, options: chartOptions() });
-}
-
-function buildBarChart(id, labels, datasets) {
-  destroyChart(id);
-  const ctx = document.getElementById(id);
-  if (!ctx) return;
-  datasets.forEach(ds => {
-    ds.borderRadius   = ds.borderRadius ?? 6;
-    ds.borderSkipped  = false;
-    ds.borderWidth    = ds.borderWidth ?? 0;
-  });
-  CHARTS[id] = new Chart(ctx, { type: 'bar', data: { labels, datasets }, options: chartOptions() });
-}
-
-function buildDoughnut(id, labels, data, colors) {
-  destroyChart(id);
-  const ctx = document.getElementById(id);
-  if (!ctx) return;
-  CHARTS[id] = new Chart(ctx, {
-    type: 'doughnut',
-    data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: '#0c1624', borderWidth: 2 }] },
-    options: {
-      responsive: true,
-      animation: { animateRotate: true, animateScale: false },
-      plugins: {
-        legend:  { 
-          position: 'bottom',
-          labels: { 
-            color: '#b8cfe0', 
-            font: { family: 'Space Mono', size: 11, weight: '500' },
-            padding: 15,
-            usePointStyle: true,
-            pointStyle: 'circle'
-          } 
-        },
-        tooltip: { 
-          backgroundColor: 'rgba(12,22,36,0.95)',
-          borderColor: 'rgba(30,232,183,0.3)', 
-          borderWidth: 1,
-          titleFont: { family: 'Space Mono', size: 12, weight: '600' },
-          bodyFont: { family: 'Space Mono', size: 11 },
-          padding: 10,
-          displayColors: true,
-          callbacks: { label: c => ` ${c.label}: ${fmt.brl(c.parsed)}` } 
-        },
-      },
-    },
-  });
-}
-
-function chartOptions() {
-  return {
-    responsive: true,
-    maintainAspectRatio: true,
-    animation: { duration: 500 },
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend:  { 
-        position: 'top',
-        labels: { 
-          color: '#b8cfe0', 
-          font: { family: 'Space Mono', size: 10, weight: '500' },
-          padding: 12,
-          usePointStyle: true,
-          pointStyle: 'circle'
-        } 
-      },
-      tooltip: { 
-        backgroundColor: 'rgba(12,22,36,0.95)',
-        borderColor: 'rgba(30,232,183,0.4)', 
-        borderWidth: 1.5,
-        titleFont: { family: 'Space Mono', size: 11, weight: '600' },
-        bodyFont: { family: 'Space Mono', size: 10 },
-        padding: 10,
-        usePointStyle: false,
-        displayColors: true,
-      },
-      filler: { propagate: true },
-    },
-    scales: {
-      x: { 
-        ticks: { 
-          color: '#6b8cae', 
-          font: { family: 'Space Mono', size: 9, weight: '500' },
-          maxRotation: 0,
-          autoSkip: true,
-          maxTicksLimit: 10
-        }, 
-        grid: { 
-          color: 'rgba(107,140,174,0.08)',
-          drawBorder: false,
-          lineWidth: 0.5
-        }
-      },
-      y: { 
-        ticks: { 
-          color: '#6b8cae', 
-          font: { family: 'Space Mono', size: 9, weight: '500' },
-          callback: v => v.toLocaleString('pt-BR')
-        }, 
-        grid: { 
-          color: 'rgba(107,140,174,0.08)',
-          drawBorder: false,
-          lineWidth: 0.5
-        },
-        beginAtZero: false
-      },
-    },
-  };
 }
 
 // ─── DIÁRIO ───────────────────────────────────────
@@ -842,10 +1180,7 @@ async function saveConfig(statusId) {
     const data   = getConfigFromInputs();
     const result = await API.post('/api/config/upsert/', data);
     STATE.config  = result;
-    renderDashboard();
-    renderProjecaoTable();
-    atualizarCampos();
-    applyNegativeValueStyling();
+    await postSaveRender();
     setStatus(statusId, '✓ Salvo!', 'ok');
   } catch (e) {
     console.error(e);
@@ -871,11 +1206,7 @@ async function saveProjecao() {
     });
     const result   = await API.post('/api/projecao/bulk/', items);
     STATE.projecao = result;
-    renderDashboard();
-    renderProjecaoTable();
-    renderCharts();
-    atualizarCampos();
-    applyNegativeValueStyling();
+    await postSaveRender();
     setStatus('saveProjecaoStatus', '✓ Salvo!', 'ok');
   } catch (e) {
     console.error(e);
@@ -889,12 +1220,7 @@ async function saveOperacoes() {
     const ops       = collectOpsFromTable();
     const result    = await API.post('/api/operacoes/bulk-sync/', { month: STATE.month, operacoes: ops });
     STATE.operacoes = result;
-    renderOpsDetalhada();
-    renderOpsTable();
-    renderDashboard();
-    renderCharts();
-    atualizarCampos();
-    applyNegativeValueStyling();
+    await postSaveRender();
     setStatus('saveOpsStatus', '✓ Salvo!', 'ok');
   } catch (e) {
     console.error(e);
@@ -1011,19 +1337,18 @@ function bindEvents() {
   });
 
   // ── Refresh em tempo real na tabela de projeção ──
+  let _debProjecao = null;
   document.getElementById('projecaoBody')?.addEventListener('input', e => {
     const input = e.target;
     const dia   = parseInt(input.dataset.dia);
     if (!dia) return;
 
-    // Garante que o dia existe no STATE
     let entry = STATE.projecao.find(p => p.dia === dia);
     if (!entry) {
       entry = { dia, realizado: null, custo_op: 0, imposto_retido: 0 };
       STATE.projecao.push(entry);
     }
 
-    // Atualiza o campo correto no STATE
     if (input.classList.contains('proj-realizado')) {
       entry.realizado = input.value !== '' ? parseFloat(input.value) : null;
     } else if (input.classList.contains('proj-custo')) {
@@ -1032,9 +1357,12 @@ function bindEvents() {
       entry.imposto_retido = parseFloat(input.value) || 0;
     }
 
-    // Re-renderiza tabela e recalcula campos
-    renderProjecaoTable();
+    updateProjecaoComputedCells();
+    renderDashboard();
     atualizarCampos();
+
+    clearTimeout(_debProjecao);
+    _debProjecao = setTimeout(renderCharts, 500);
   });
 
   document.getElementById('saveProjecaoBtn')?.addEventListener('click', saveProjecao);
