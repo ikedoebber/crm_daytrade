@@ -251,16 +251,23 @@ const calcPnL = {
   },
 
   capitalFinal() {
-    return get.banca_inicial() + this.lucroLiquido();
+    // Usar a mesma lógica que capitalAtual() para manter sincronia
+    // com backend (Python). Acumula dia a dia: 
+    // capital_dia_anterior + realizado - custo_op - imposto_retido
+    return this.capitalAtual();
   },
 
   capitalAtual() {
+    // Prioridade 1: Se backend envia capital_atual, usar esse valor
     if (typeof STATE !== 'undefined' && STATE.capital_atual?.capital_final !== undefined) {
       return STATE.capital_atual.capital_final;
     }
-    // Fallback: recalcula localmente
+    
+    // Prioridade 2: Fallback - recalcula localmente mesma fórmula do backend
+    // Acumula a projeção dia a dia (exatamente como Python faz)
     return (STATE.projecao ?? []).reduce((capital, d) => {
       if (d.realizado === null || d.realizado === '') return capital;
+      // Fórmula: capital_anterior + realizado - custos - impostos
       return capital + _toNumber(d.realizado) - _toNumber(d.custo_op) - _toNumber(d.imposto_retido);
     }, get.banca_inicial());
   },
