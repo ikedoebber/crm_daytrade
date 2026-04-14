@@ -816,3 +816,12 @@ input[type="number"]:invalid {
     padding: 8px 10px;
   }
 }
+.proj-custo,
+.proj-imposto {
+  color: #ff4c6a !important;
+}
+
+.proj-custo::placeholder,
+.proj-imposto::placeholder {
+  color: rgba(255, 76, 106, 0.4) !important;
+}

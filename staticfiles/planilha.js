@@ -99,8 +99,9 @@ function buildMonthSelector() {
   for (let i = -3; i <= 12; i++) {
     const d   = new Date(now.getFullYear(), now.getMonth() + i, 1);
     const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    // FIX: usa Intl.DateTimeFormat para evitar dependência de locale no replace
     const lbl = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
-                  .replace('. de ', '/').replace('.', '');
+                  .replace(/\.\s*de\s*/i, '/').replace(/\.$/, '');
     months.push({ val, lbl });
   }
   months.forEach(m => {
@@ -196,21 +197,25 @@ function getConfigFromInputs() {
   // Lê banca_inicial aceitando 0 explicitamente
   const bancaRaw = n('cfg_banca_inicial');
 
+  // FIX: usa nullish coalescing para preservar 0 como valor válido em todos os campos numéricos
+  const safeNum = (val, def) => (isNaN(val) ? def : val);
+  const safeInt = (val, def) => (isNaN(val) ? def : val);
+
   return {
     month:                       STATE.month,
     banca_inicial:               isNaN(bancaRaw) ? d.banca_inicial : bancaRaw,
-    objetivo_diario:             n('cfg_objetivo_diario')             || d.objetivo_diario,
-    dias_uteis:                  ni('cfg_dias_uteis')                 || d.dias_uteis,
-    plano_meta_aprovacao:        n('cfg_plano_meta_aprovacao')        || 0,
-    plano_perda_max_total:       n('cfg_plano_perda_max_total')       || 0,
-    plano_perda_diaria_aprovacao:n('cfg_plano_perda_diaria_aprovacao')|| 0,
+    objetivo_diario:             safeNum(n('cfg_objetivo_diario'),              d.objetivo_diario),
+    dias_uteis:                  safeInt(ni('cfg_dias_uteis'),                  d.dias_uteis),
+    plano_meta_aprovacao:        safeNum(n('cfg_plano_meta_aprovacao'),         0),
+    plano_perda_max_total:       safeNum(n('cfg_plano_perda_max_total'),        0),
+    plano_perda_diaria_aprovacao:safeNum(n('cfg_plano_perda_diaria_aprovacao'), 0),
     plano_risco1:                s('cfg_plano_risco1'),
     plano_start:                 s('cfg_plano_start'),
-    plano_capital:               n('cfg_plano_capital')               || 0,
-    plano_meta:                  n('cfg_plano_meta')                  || 0,
+    plano_capital:               safeNum(n('cfg_plano_capital'),                0),
+    plano_meta:                  safeNum(n('cfg_plano_meta'),                   0),
     plano_ativos:                s('cfg_plano_ativos'),
-    plano_maxentradas:           ni('cfg_plano_maxentradas')          || d.plano_maxentradas,
-    plano_stop:                  n('cfg_plano_stop')                  || 0,
+    plano_maxentradas:           safeInt(ni('cfg_plano_maxentradas'),           d.plano_maxentradas),
+    plano_stop:                  safeNum(n('cfg_plano_stop'),                   0),
   };
 }
 
@@ -268,7 +273,7 @@ function renderDashboard() {
     const maxOps = Math.max(...Object.values(opsPorDia));
     const diasComOps = Object.keys(opsPorDia).length;
     const mediaOps = (diasComOps > 0 ? (ops.length / diasComOps) : 0).toFixed(1);
-    
+
     setEl('maxOpsPorDia', maxOps);
     setEl('mediaOpsPorDia', mediaOps);
   } else {
@@ -285,19 +290,19 @@ function renderDashboard() {
 function renderCalendar() {
   const container = document.getElementById('calendarContainer');
   if (!container) return;
-  
+
   container.innerHTML = '';
-  
+
   const c    = STATE.config;
   const meta = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
   const [y, m] = STATE.month.split('-').map(Number);
-  
+
   // Pega total de dias do mês (independente de dias_uteis)
   const diasDoMes = new Date(y, m, 0).getDate();
-  
+
   // Pega primeiro dia da semana (0=domingo)
   const firstDay = new Date(y, m - 1, 1).getDay();
-  
+
   // Adiciona "dias vazios" antes do primeiro dia do mês
   for (let i = 0; i < firstDay; i++) {
     const empty = document.createElement('div');
@@ -306,19 +311,19 @@ function renderCalendar() {
     empty.style.pointerEvents = 'none';
     container.appendChild(empty);
   }
-  
+
   // Cria todos os dias do mês
   for (let d = 1; d <= diasDoMes; d++) {
     const dadoDia = STATE.projecao.find(p => p.dia === d);
     const realizado = dadoDia?.realizado;
     const capitalFinal = dadoDia?.capital_final;
-    
+
     const dia = document.createElement('div');
     dia.className = 'calendar-day';
-    
+
     let status = 'neutral';
     let icon = '◯';
-    
+
     // Determina classe e ícone
     if (realizado === null || realizado === undefined || realizado === '') {
       status = 'neutral';
@@ -326,7 +331,7 @@ function renderCalendar() {
     } else {
       const val = parseFloat(realizado);
       const pctMeta = meta > 0 ? (val / meta) * 100 : 0;
-      
+
       if (val > 0) {
         status = 'positive';
         icon = pctMeta >= 100 ? '✓' : '↗';
@@ -338,15 +343,15 @@ function renderCalendar() {
         icon = '═';
       }
     }
-    
+
     dia.classList.add(status);
-    
+
     // Estrutura do dia melhorada
     const header = document.createElement('div');
     header.className = 'calendar-day-header';
     header.innerHTML = `<span class="calendar-day-icon">${icon}</span><span class="calendar-day-num">${d}</span>`;
     dia.appendChild(header);
-    
+
     // Valor em BRL
     if (realizado !== null && realizado !== undefined && realizado !== '') {
       const value = document.createElement('div');
@@ -355,16 +360,16 @@ function renderCalendar() {
       value.textContent = fmt.brl(val);
       dia.appendChild(value);
     }
-    
+
     // Tooltip interativo com mais detalhes
     if (realizado !== null && realizado !== undefined && realizado !== '') {
       const tooltip = document.createElement('div');
       tooltip.className = 'calendar-tooltip';
-      
+
       const val = parseFloat(realizado);
       const pctMeta = meta > 0 ? ((val / meta) * 100).toFixed(0) : 0;
       const capitalStr = capitalFinal ? fmt.brl(capitalFinal) : '—';
-      
+
       tooltip.innerHTML = `
         <div style="font-weight:600;margin-bottom:4px">${fmt.brl(val)}</div>
         <div style="font-size:9px;opacity:0.8">Meta: ${pctMeta}%</div>
@@ -372,96 +377,95 @@ function renderCalendar() {
       `;
       dia.appendChild(tooltip);
     }
-    
+
     container.appendChild(dia);
   }
 }
 
+function calcCapitalPorDia() {
+  const c     = STATE.config;
+  const banca = parseFloat(c.banca_inicial)   ?? CONFIG_DEFAULTS.banca_inicial;
+  const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
+  const dias  = parseInt(c.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
+
+  const resultado   = [];
+  let ultimoCapReal = banca;
+  let diasFuturos   = 0; // conta dias consecutivos sem resultado após o último real
+
+  for (let d = 1; d <= dias; d++) {
+    const dadoDia    = STATE.projecao.find(p => p.dia === d) || {};
+    const realizado  = dadoDia.realizado ?? '';
+    const custoOp    = parseFloat(dadoDia.custo_op)       || 0;
+    const impostoRet = parseFloat(dadoDia.imposto_retido) || 0;
+
+    const temResultado = realizado !== '' && realizado !== null;
+
+    let projecaoDia;
+    let capitalFinal = null;
+    let net          = null;
+    let pctMeta      = '—';
+    let retorno      = '—';
+
+    if (temResultado) {
+      diasFuturos  = 0;
+      const r      = parseFloat(realizado) || 0;
+      net          = r - custoOp - impostoRet;
+      capitalFinal = ultimoCapReal + net;
+      projecaoDia  = ultimoCapReal; // dia com resultado: projetado = base anterior
+      pctMeta      = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
+      retorno      = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
+      ultimoCapReal = capitalFinal;
+    } else {
+      // Dias sem resultado: projeta acumulando +meta a cada dia futuro
+      diasFuturos++;
+      projecaoDia  = d === 1 ? banca : ultimoCapReal + (meta * diasFuturos);
+      capitalFinal = null; // sem resultado real → Capital Final exibe "—"
+    }
+
+    resultado.push({ d, projecaoDia, capitalFinal, net, pctMeta, retorno, realizado, custoOp, impostoRet });
+  }
+
+  return resultado;
+}
+
 // ─── PROJEÇÃO DIÁRIA ──────────────────────────────
-// Colunas (índice):
-//  0  DIA
-//  1  BANCA PROJ.
-//  2  META DIA
-//  3  REALIZADO      (input)
-//  4  CUSTO OP.      (input)
-//  5  IMPOSTO RETIDO (input)
-//  6  RESULTADO DIA  ← novo
-//  7  % META
-//  8  CAPITAL FINAL
-//  9  RETORNO
 function renderProjecaoTable() {
-  // ── Salva foco antes de reconstruir o DOM ──
   const focusedDia   = document.activeElement?.dataset?.dia;
   const focusedClass = document.activeElement?.classList?.contains('proj-realizado') ? 'proj-realizado'
                      : document.activeElement?.classList?.contains('proj-custo')     ? 'proj-custo'
                      : document.activeElement?.classList?.contains('proj-imposto')   ? 'proj-imposto'
                      : null;
 
-  const c     = STATE.config;
-  const banca = parseFloat(c.banca_inicial)   ?? CONFIG_DEFAULTS.banca_inicial;
-  const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
-  const dias  = parseInt(c.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
-  
+  const c    = STATE.config;
+  const meta = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
+
   const tbody = document.getElementById('projecaoBody');
   tbody.innerHTML = '';
 
-  let capitalFinalAnterior = banca;
-  let ultimoCapitalNaoZero = banca;
-  const hoje = new Date();
+  const hoje   = new Date();
   const [y, m] = STATE.month.split('-').map(Number);
+  const linhas = calcCapitalPorDia();
 
-  for (let d = 1; d <= dias; d++) {
-    const dadoDia    = STATE.projecao.find(p => p.dia === d) || {};
-    const realizado  = dadoDia.realizado      ?? '';
-    const custoOp    = dadoDia.custo_op       ?? 0;
-    const impostoRet = dadoDia.imposto_retido ?? 0;
-
-    // ── Projeção: Dia 1 só investimento; Dia 2+ acumula com meta ──
-    let projecaoDia;
-    if (d === 1) {
-      projecaoDia = capitalFinalAnterior;  // Investimento inicial
-    } else {
-      projecaoDia = capitalFinalAnterior + meta;  // Acumula com meta
-    }
-
+  linhas.forEach(({ d, projecaoDia, capitalFinal, net, pctMeta, retorno, realizado }) => {
     const dataLinha = new Date(y, m - 1, d);
     const isHoje    = dataLinha.toDateString() === hoje.toDateString();
     const isPassado = dataLinha < hoje && !isHoje;
 
-    let capitalFinal      = capitalFinalAnterior;
-    let pctMeta           = '—';
-    let retorno           = '—';
-    let resultadoDia      = '—';
-    let resultadoDiaClass = '';
-
-    if (realizado !== '' && realizado !== null) {
-      const r  = parseFloat(realizado) || 0;
-      const c2 = parseFloat(custoOp)   || 0;
-      const i  = parseFloat(impostoRet) || 0;
-      const net       = r - c2 - i;
-      capitalFinal    = capitalFinalAnterior + net;
-      pctMeta         = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
-      retorno         = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
-      resultadoDia    = fmt.brl(net);
-      resultadoDiaClass = net >= 0 ? 'val-positive' : 'val-negative';
-    } else if (d > 2) {
-      // Sem realizado: projeta com meta (apenas a partir do dia 3)
-      capitalFinal = projecaoDia;
-    }
-    
-    // Se capitalFinal for 0, usa anterior não-zero
-    if (capitalFinal === 0 || capitalFinal === null) {
-      capitalFinal = ultimoCapitalNaoZero;
-    } else {
-      ultimoCapitalNaoZero = capitalFinal;
-    }
-    
-    // Para próxima linha: capital final desta é a base
-    capitalFinalAnterior = capitalFinal;
-
     const rowClass  = isHoje ? 'row-hoje' : isPassado ? 'row-passado' : 'row-futuro';
+
+    const dadoDia    = STATE.projecao.find(p => p.dia === d) || {};
+    const custoOp    = dadoDia.custo_op       ?? 0;
+    const impostoRet = dadoDia.imposto_retido ?? 0;
+
     const realClass = (realizado !== '' && realizado !== null)
       ? (parseFloat(realizado) >= 0 ? 'val-positive' : 'val-negative') : '';
+
+    let resultadoDia      = '—';
+    let resultadoDiaClass = '';
+    if (net !== null) {
+      resultadoDia      = fmt.brl(net);
+      resultadoDiaClass = net >= 0 ? 'val-positive' : 'val-negative';
+    }
 
     const capitalFinalCell = (realizado !== '' && realizado !== null)
       ? fmt.brl(capitalFinal)
@@ -472,11 +476,11 @@ function renderProjecaoTable() {
     const tr = document.createElement('tr');
     tr.className   = rowClass;
     tr.dataset.dia = d;
-    
+
     tr.innerHTML = `
       <td style="color:var(--neon);font-weight:700">${d}${isHoje ? ' 🔵' : ''}</td>
-      <td>${fmt.brl(projecaoDia)}</td>
       <td style="color:var(--neon3)">${fmt.brl(meta)}</td>
+      <td>${fmt.brl(projecaoDia)}</td>
       <td class="${realClass}">
         <input class="tbl-input proj-realizado" type="number" data-dia="${d}"
                value="${realizado !== null && realizado !== '' ? realizado : ''}"
@@ -484,106 +488,69 @@ function renderProjecaoTable() {
       </td>
       <td>
         <input class="tbl-input proj-custo" type="number" data-dia="${d}"
-               value="${custoOp || ''}" placeholder="0" step="0.01">
+               value="${custoOp !== null && custoOp !== '' ? custoOp : ''}"
+               placeholder="0" step="0.01" style="color:#ff4c6a">
       </td>
       <td>
         <input class="tbl-input proj-imposto" type="number" data-dia="${d}"
-               value="${impostoRet || ''}" placeholder="0" step="0.01">
+               value="${impostoRet !== null && impostoRet !== '' ? impostoRet : ''}"
+               placeholder="0" step="0.01" style="color:#ff4c6a">
       </td>
       <td class="${resultadoDiaClass}" style="font-weight:600">${resultadoDia}</td>
       <td>${pctMeta}</td>
       <td style="color:var(--neon2);font-weight:600">${capitalFinalCell}</td>
       <td>${retorno}</td>
     `;
-    tbody.appendChild(tr);
-  }
 
-  // ── Restaura foco após reconstrução do DOM ──
-  if (focusedDia && focusedClass) {
-    const el = tbody.querySelector(`.${focusedClass}[data-dia="${focusedDia}"]`);
-    if (el) {
-      el.focus();
-      const len = el.value?.length ?? 0;
-      el.setSelectionRange(len, len);
+    tbody.appendChild(tr); // ← CORREÇÃO 1: linha que estava faltando
+
+    // ── Restaura foco após reconstrução do DOM ──
+    if (focusedDia && focusedClass) {
+      const el = tbody.querySelector(`.${focusedClass}[data-dia="${focusedDia}"]`);
+      if (el) {
+        el.focus();
+        const len = el.value?.length ?? 0;
+        if (typeof el.setSelectionRange === 'function') {
+          el.setSelectionRange(len, len);
+        }
+      }
     }
-  }
-}
+  }); // ← CORREÇÃO 2: fecha o forEach corretamente
+} // ← fecha renderProjecaoTable()
 
 // ─── ATUALIZA SÓ AS CÉLULAS CALCULADAS DA PROJEÇÃO ──
-// Não toca nos inputs — evita reset de cursor durante digitação.
-// Mapa de colunas:
-//  0  DIA | 1  BANCA PROJ | 2  META DIA | 3  REALIZADO(input)
-//  4  CUSTO(input) | 5  IMPOSTO(input)
-//  6  RESULTADO DIA | 7  % META | 8  CAPITAL FINAL | 9  RETORNO
+// CORREÇÃO 3: função movida para fora do forEach e de renderProjecaoTable
 function updateProjecaoComputedCells() {
-  const c     = STATE.config;
-  const banca = parseFloat(c.banca_inicial)   ?? CONFIG_DEFAULTS.banca_inicial;
-  const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
-  const rows  = document.querySelectorAll('#projecaoBody tr');
-
-  let capitalFinalAnterior = banca;
-  let ultimoCapitalNaoZero = banca;
+  const linhas = calcCapitalPorDia();
+  const rows   = document.querySelectorAll('#projecaoBody tr');
 
   rows.forEach(tr => {
-    const d          = parseInt(tr.dataset.dia);
-    const dadoDia    = STATE.projecao.find(p => p.dia === d) || {};
-    const realizado  = dadoDia.realizado      ?? '';
-    const custoOp    = dadoDia.custo_op       ?? 0;
-    const impostoRet = dadoDia.imposto_retido ?? 0;
+    const d    = parseInt(tr.dataset.dia);
+    const info = linhas.find(l => l.d === d);
+    if (!info) return;
 
-    // ── Projeção: Dia 1 só investimento; Dia 2+ acumula com meta ──
-    let projecaoDia;
-    if (d === 1) {
-      projecaoDia = capitalFinalAnterior;  // Investimento inicial
-    } else {
-      projecaoDia = capitalFinalAnterior + meta;  // Acumula com meta
-    }
-
+    const { projecaoDia, capitalFinal, net, pctMeta, retorno, realizado } = info;
     const cells = tr.querySelectorAll('td');
 
-    // col 1 — Banca Proj
-    if (cells[1]) cells[1].textContent = fmt.brl(projecaoDia);
+    // col 2 — Banca Proj
+    if (cells[2]) cells[2].textContent = fmt.brl(projecaoDia);
 
-    let capitalFinal      = capitalFinalAnterior;
-    let pctMeta           = '—';
-    let retorno           = '—';
-    let resultadoDia      = '—';
-    let resultadoDiaClass = '';
-
-    if (realizado !== '' && realizado !== null) {
-      const r  = parseFloat(realizado) || 0;
-      const c2 = parseFloat(custoOp)   || 0;
-      const i  = parseFloat(impostoRet) || 0;
-      const net    = r - c2 - i;
-      capitalFinal = capitalFinalAnterior + net;
-      pctMeta      = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
-      retorno      = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
-      resultadoDia      = fmt.brl(net);
-      resultadoDiaClass = net >= 0 ? 'val-positive' : 'val-negative';
-
-      // Cor da td que envolve o input de realizado
-      const realTd = tr.querySelector('.proj-realizado')?.closest('td');
-      if (realTd) realTd.className = parseFloat(realizado) >= 0 ? 'val-positive' : 'val-negative';
-    } else if (d > 2) {
-      // Sem realizado: projeta com meta (apenas a partir do dia 3)
-      capitalFinal = projecaoDia;
+    // Cor da td que envolve o input de realizado
+    const realTd = tr.querySelector('.proj-realizado')?.closest('td');
+    if (realTd && realizado !== '' && realizado !== null) {
+      realTd.className = parseFloat(realizado) >= 0 ? 'val-positive' : 'val-negative';
     }
-    
-    // Se capitalFinal for 0, usa anterior não-zero
-    if (capitalFinal === 0 || capitalFinal === null) {
-      capitalFinal = ultimoCapitalNaoZero;
-    } else {
-      ultimoCapitalNaoZero = capitalFinal;
-    }
-    
-    // Para próxima linha: capital final desta é a base
-    capitalFinalAnterior = capitalFinal;
 
     // col 6 — Resultado Dia
     if (cells[6]) {
-      cells[6].textContent = resultadoDia;
-      cells[6].className   = resultadoDiaClass;
-      if (resultadoDiaClass) cells[6].style.fontWeight = '600';
+      if (net !== null) {
+        cells[6].textContent = fmt.brl(net);
+        cells[6].className   = net >= 0 ? 'val-positive' : 'val-negative';
+        cells[6].style.fontWeight = '600';
+      } else {
+        cells[6].textContent = '—';
+        cells[6].className   = '';
+      }
     }
 
     // col 7 — % Meta
@@ -604,6 +571,7 @@ function updateProjecaoComputedCells() {
     if (cells[9]) cells[9].textContent = retorno;
   });
 }
+
 
 // ─── OPERAÇÕES (tabela resumo por dia) ────────────
 function renderOpsTable() {
@@ -722,6 +690,7 @@ function autoCalcRow(tr) {
   const saida     = parseFloat(g('saida'))     || 0;
   const contratos = parseFloat(g('contratos')) || 1;
   const ativo     = g('ativo');
+  const tipo      = g('tipo');  // FIX: lê o tipo (COMPRA/VENDA) para cálculo correto
 
   const valorPontoMap = { WIN: 0.20, WDO: 10.00, BIT: 0.01 };
   const vpEl = tr.querySelector('[name="valor_ponto"]');
@@ -731,7 +700,10 @@ function autoCalcRow(tr) {
   }
   const vp = parseFloat(vpEl.value) || 0;
 
-  const diff      = saida - entrada;
+  // FIX: para VENDA, lucro ocorre quando saída < entrada (posição vendida fechada com lucro).
+  // O sinal de "diff" deve ser invertido para VENDA: ganhou quando saiu abaixo de onde vendeu.
+  const diffBruto = saida - entrada;
+  const diff      = tipo === 'VENDA' ? -diffBruto : diffBruto;
   const pontos    = ativo === 'WDO' ? diff * 1000 : diff;
   const resultado = pontos * contratos * vp;
 
@@ -742,6 +714,10 @@ function autoCalcRow(tr) {
     pontosEl.value    = pontos.toFixed(2);
     resultadoEl.value = resultado.toFixed(2);
     resultadoEl.closest('td').className = resultado >= 0 ? 'val-positive' : 'val-negative';
+
+    // FIX: atualiza td de pontos também
+    pontosEl.closest('td').className = pontos >= 0 ? 'val-positive' : 'val-negative';
+
     const statusSel = tr.querySelector('[name="status"]');
     statusSel.value = resultado > 0 ? 'GAIN' : resultado < 0 ? 'LOSS' : 'ZERADA';
   }
@@ -751,6 +727,9 @@ function deleteOpsRow(idx) {
   STATE.operacoes.splice(idx, 1);
   renderOpsDetalhada();
   renderOpsTable();
+  // FIX: atualiza dashboard e charts ao deletar operação
+  renderDashboard();
+  renderCharts();
   atualizarCampos();
 }
 
@@ -768,13 +747,15 @@ function addNewOpsRow() {
 function collectOpsFromTable() {
   return Array.from(document.querySelectorAll('#opsDetalhadaBody tr')).map(tr => {
     const g = name => tr.querySelector(`[name="${name}"]`)?.value;
+    // FIX: contratos mínimo 1 (nunca 0), mas preserva o valor digitado se >= 1
+    const contratosRaw = parseInt(g('contratos'));
     return {
       dia:         parseInt(g('dia'))           || 1,
       tipo:        g('tipo')                    || 'COMPRA',
       ativo:       g('ativo')                   || 'WIN',
       entrada:     parseFloat(g('entrada'))     || 0,
       saida:       parseFloat(g('saida'))       || 0,
-      contratos:   parseInt(g('contratos'))     || 1,
+      contratos:   isNaN(contratosRaw) || contratosRaw < 1 ? 1 : contratosRaw,
       valor_ponto: parseFloat(g('valor_ponto')) || 0,
       pontos:      parseFloat(g('pontos'))      || 0,
       resultado:   parseFloat(g('resultado'))   || 0,
@@ -976,26 +957,20 @@ function buildDoughnut(id, labels, data, colors) {
 
 // ─── RENDER CHARTS ────────────────────────────────
 function renderCharts() {
-  const banca  = parseFloat(STATE.config.banca_inicial)   ?? CONFIG_DEFAULTS.banca_inicial;
-  const meta   = parseFloat(STATE.config.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
-  const dias   = parseInt(STATE.config.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
+  const c     = STATE.config;
+  const banca = parseFloat(c.banca_inicial)   ?? CONFIG_DEFAULTS.banca_inicial;
+  const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
+  const dias  = parseInt(c.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
   const labels = Array.from({ length: dias }, (_, i) => `D${i + 1}`);
 
-  const projecaoData = labels.map((_, i) => banca + meta * (i + 1));
+  // FIX: projecaoData consistente com calcCapitalPorDia — Dia 1 = banca, Dia N = banca + meta*(N-1)
+  const projecaoData = labels.map((_, i) => i === 0 ? banca : banca + meta * i);
 
-  let cap = banca;
-  const realizadoData = [];
-  for (let d = 1; d <= dias; d++) {
-    const pDia = STATE.projecao.find(p => p.dia === d);
-    if (pDia && pDia.realizado !== null && pDia.realizado !== '') {
-      cap += (parseFloat(pDia.realizado) || 0)
-           - (parseFloat(pDia.custo_op)       || 0)
-           - (parseFloat(pDia.imposto_retido)  || 0);
-      realizadoData.push(cap);
-    } else {
-      realizadoData.push(null);
-    }
-  }
+  // FIX: usa calcCapitalPorDia() para dados realizados, garantindo consistência com a tabela
+  const linhas = calcCapitalPorDia();
+  const realizadoData = linhas.map(l =>
+    (l.realizado !== '' && l.realizado !== null) ? l.capitalFinal : null
+  );
 
   buildLineChart('chartBanca', labels, [
     { label: 'Projeção',  data: projecaoData,  borderColor: CHART_COLORS.proj },
@@ -1030,20 +1005,17 @@ function renderCharts() {
     { label: 'WDO (pts)', data: pontosWdoDia, backgroundColor: CHART_COLORS.win  + 'cc' },
   ]);
 
+  // FIX: usa realizadoData de calcCapitalPorDia para drawdown (consistente com tabela)
   const ddAcum = [];
-  let capDD = banca; let peakDD = banca;
-  for (let d = 1; d <= dias; d++) {
-    const pDia = STATE.projecao.find(p => p.dia === d);
-    if (pDia && pDia.realizado !== null && pDia.realizado !== '') {
-      capDD += (parseFloat(pDia.realizado)       || 0)
-             - (parseFloat(pDia.custo_op)         || 0)
-             - (parseFloat(pDia.imposto_retido)   || 0);
-      if (capDD > peakDD) peakDD = capDD;
-      ddAcum.push(peakDD > 0 ? -((peakDD - capDD) / peakDD * 100) : 0);
+  let peakDD = banca;
+  linhas.forEach(l => {
+    if (l.realizado !== '' && l.realizado !== null) {
+      if (l.capitalFinal > peakDD) peakDD = l.capitalFinal;
+      ddAcum.push(peakDD > 0 ? -((peakDD - l.capitalFinal) / peakDD * 100) : 0);
     } else {
       ddAcum.push(null);
     }
-  }
+  });
   buildLineChart('chartDrawdown', labels, [
     { label: 'Drawdown %', data: ddAcum, borderColor: CHART_COLORS.loss, fill: true },
   ]);
@@ -1165,8 +1137,7 @@ function addRegra() {
 
 async function saveRegras() {
   const regrasList = STATE.regras.map((r, i) => ({ texto: r.texto, ordem: i }));
-  await API.post('/api/regras/bulk-sync/', regrasList);
-  const refreshed = await API.get('/api/regras/');
+  const refreshed  = await API.post('/api/regras/bulk-sync/', regrasList);
   STATE.regras = refreshed;
   renderRegras();
 }
@@ -1197,7 +1168,7 @@ async function saveProjecao() {
       return {
         month:          STATE.month,
         dia,
-        realizado:      real !== '' ? (parseFloat(real) || null) : null,
+        realizado:      real !== '' ? (parseFloat(real) ?? null) : null,
         custo_op:       parseFloat(custo) || 0,
         imposto_retido: parseFloat(imp)   || 0,
       };
@@ -1229,10 +1200,20 @@ async function saveOperacoes() {
 async function savePlano() {
   setStatus('savePlanoStatus', 'Salvando...');
   try {
-    await saveConfig('savePlanoStatus');
-    await saveRegras();
+    // FIX: salva config e regras em paralelo para evitar duplo postSaveRender
+    const configData = getConfigFromInputs();
+    const regrasList = STATE.regras.map((r, i) => ({ texto: r.texto, ordem: i }));
+    const [configResult, regrasResult] = await Promise.all([
+      API.post('/api/config/upsert/', configData),
+      API.post('/api/regras/bulk-sync/', regrasList),
+    ]);
+    STATE.config = configResult;
+    STATE.regras = regrasResult;
+    await postSaveRender();
+    renderRegras();
     setStatus('savePlanoStatus', '✓ Salvo!', 'ok');
-  } catch {
+  } catch (e) {
+    console.error(e);
     setStatus('savePlanoStatus', 'Erro!', 'err');
   }
 }
@@ -1279,8 +1260,11 @@ function applyNegativeValueStyling() {
     }, { once: false });
   });
 
+  // FIX: verifica apenas elementos-folha sem filhos de elemento (ignora wrappers com inputs)
   document.querySelectorAll('td, div, span').forEach(el => {
-    if (el.tagName === 'INPUT' || el.children.length > 0) return;
+    // FIX: pula elementos que contêm outros elementos (ex: td com input dentro)
+    const hasElementChildren = Array.from(el.children).some(c => c.nodeType === Node.ELEMENT_NODE);
+    if (hasElementChildren) return;
     const text = el.textContent.trim();
     if (!text || !/\d/.test(text)) return;
     const val = extractNum(text);

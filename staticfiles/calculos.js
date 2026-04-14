@@ -109,61 +109,38 @@ const get = {
 
 const calc = {
 
-  // ── Resultados Financeiros ──────────────────────────
-
-  /**
-   * Lucro bruto: soma apenas das operações vencedoras (GAIN).
-   * Sempre ≥ 0.
-   */
   lucroBruto() {
     return STATE.operacoes
       ?.filter(o => o.status === 'GAIN')
       .reduce((a, o) => a + (+o.resultado || 0), 0) ?? 0;
   },
 
-  /**
-   * Perda bruta: valor absoluto das operações perdedoras (LOSS).
-   * Sempre ≥ 0.
-   */
   perdaBruta() {
-    return Math.abs(
-      STATE.operacoes
-        ?.filter(o => o.status === 'LOSS')
-        .reduce((a, o) => a + (+o.resultado || 0), 0) ?? 0
-    );
+    return STATE.operacoes
+      ?.filter(o => o.status === 'LOSS')
+      .reduce((a, o) => a + Math.abs(+o.resultado || 0), 0) ?? 0;
   },
 
-  /**
-   * Total de deduções operacionais (custos + impostos).
-   * Retorna valor negativo para facilitar somas.
-   */
   totalDeducoes() {
     return -(get.custos_totais() + get.impostos_totais());
   },
 
-  /**
-   * Lucro Líquido = Resultado bruto das ops − Custos − Impostos.
-   *
-   * CORREÇÃO DE BUG (versão anterior):
-   *   Antes: lucroBruto descontava custos/impostos E lucroLiquido subtraía
-   *          prejuizoBruto (que já incluía custos/impostos) → dupla dedução.
-   *   Agora: cálculo direto e único, sem risco de dedução dupla.
-   */
   lucroLiquido() {
-    return get.resultado_total() + calc.totalDeducoes();
+    return calc.lucroBruto()
+      - calc.perdaBruta()
+      - get.custos_totais()
+      - get.impostos_totais();
   },
 
-  /**
-   * Capital Final = Banca Inicial + Lucro Líquido.
-   */
+
+  prejuizoBruto() {
+    return calc.perdaBruta();
+  },
+
   capitalFinal() {
     return get.banca_inicial() + calc.lucroLiquido();
   },
 
-  /**
-   * Capital atual acumulando apenas os dias já realizados na projeção.
-   * Prioriza STATE.capital_atual.capital_final quando disponível (vem do backend).
-   */
   capitalAtual() {
     if (
       typeof STATE !== 'undefined' &&
@@ -194,7 +171,7 @@ const calc = {
    * Representa quanto do resultado bruto se converte em lucro real.
    */
   margemLiquida() {
-    const resultado = get.resultado_total();
+    const resultado = calc.lucroBruto() - calc.perdaBruta();
     return resultado !== 0 ? (calc.lucroLiquido() / resultado) * 100 : 0;
   },
 
@@ -315,10 +292,6 @@ const calc = {
 
   // ── Drawdown ────────────────────────────────────────
 
-  /**
-   * Drawdown máximo calculado dia a dia a partir da projeção.
-   * Retorna { valor, pct } — valores sempre positivos.
-   */
   drawdownDiario() {
     let cap  = get.banca_inicial();
     let peak = cap;
@@ -337,10 +310,6 @@ const calc = {
     return { valor: ddValor, pct: ddPct };
   },
 
-  /**
-   * Drawdown máximo calculado trade a trade (operação por operação).
-   * Retorna { valor, pct } — valores sempre positivos.
-   */
   drawdownTrade() {
     let cap  = get.banca_inicial();
     let peak = cap;
@@ -360,9 +329,6 @@ const calc = {
 
   // ── Pico de Patrimônio ──────────────────────────────
 
-  /**
-   * Maior capital acumulado atingido ao longo do período (dia a dia).
-   */
   patrimonioMaximo() {
     let cap  = get.banca_inicial();
     let peak = cap;
@@ -376,9 +342,6 @@ const calc = {
 
   // ── Volatilidade ───────────────────────────────────
 
-  /**
-   * Desvio padrão amostral dos resultados diários realizados.
-   */
   volatilidade() {
     const retornos = (STATE.projecao ?? [])
       .filter(d => d.realizado !== null && d.realizado !== '')
@@ -393,10 +356,6 @@ const calc = {
 
   // ── Sequências ─────────────────────────────────────
 
-  /**
-   * Maior sequência consecutiva de GAIN e de LOSS.
-   * Retorna { maiorWin, maiorLoss }.
-   */
   sequencias() {
     let curWin = 0; let curLoss = 0;
     let maiorWin = 0; let maiorLoss = 0;
@@ -417,23 +376,13 @@ const calc = {
   },
 
   // ── IR Estimado ────────────────────────────────────
-
-  /**
-   * Imposto de Renda estimado (20% sobre lucro acima de R$ 20.000).
-   * Simplificado: não considera isenção mensal de operações com prejuízo.
-   */
-  impostoRenda() {
-    const lb = calc.lucroBruto();
-    return lb > 20000 ? (lb - 20000) * 0.20 : 0;
-  },
+    impostoRenda() {
+      return 0;
+    },
 };
 
 // ─── ATUALIZAR CAMPOS HTML ─────────────────────────
 
-/**
- * Aplica todos os valores calculados nos elementos do DOM.
- * Cada _setText é seguro: não lança erro se o elemento não existir.
- */
 function atualizarCampos() {
   const dd      = calc.drawdownDiario();
   const ddTrade = calc.drawdownTrade();
@@ -444,16 +393,15 @@ function atualizarCampos() {
   _setText('lucroLiquido',            fmt.brl(calc.lucroLiquido()));
   _setText('bancaFinal',              fmt.brl(calc.bancaFinal()));
   _setText('planoBancaFinal',         fmt.brl(calc.bancaFinal()));
-  _setText('capitalAtualDisp',        fmt.brl(calc.lucroLiquido()));  // ← DEPOIS
+  _setText('capitalAtualDisp',        fmt.brl(calc.capitalAtual()));
   _setText('lucroEsperado',           fmt.brl(calc.lucroEsperado()));
-  _setText('totalRealizado',          fmt.brl(calc.lucroBruto()));
-  _setText('prejuizoBruto',           fmt.brl(calc.perdaBruta() + get.custos_totais() + get.impostos_totais()));
+  _setText('totalRealizado',          fmt.brl(get.realizado_total()));
+  _setText('prejuizoBruto',           fmt.brl(calc.prejuizoBruto()));
   _setText('totalCustosOperacionais', fmt.brl(get.custos_totais()));
   _setText('totalImpostoFonte',       fmt.brl(get.impostos_totais()));
-  _setText('impostoRendaCalculado',   fmt.brl(calc.impostoRenda()));
   _setText('patrimonioMaximo',        fmt.brl(calc.patrimonioMaximo()));
   _setText('volatilidade',            fmt.brl(calc.volatilidade()));
-  _setText('totalResultadoDetalhado', fmt.brl(get.resultado_total()));
+  _setText('totalResultadoDetalhado',   fmt.brl(calc.lucroBruto() - calc.perdaBruta()));
 
   // — Médias e extremos —
   _setText('mediaLucroPrejuizo',      fmt.brl(calc.mediaResultado()));
