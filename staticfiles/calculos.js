@@ -152,28 +152,34 @@ const agg = {
   },
 
   /**
-   * Calcula lucro bruto une com cache.
+   * Calcula lucro bruto com cache.
+   * Lucro bruto = soma de TODOS os resultados positivos
+   * (independentemente de status - usa valor real)
    */
   lucroBruto() {
     if (CACHE.lucroBruto !== null) return CACHE.lucroBruto;
     
     const ops = STATE.operacoes ?? [];
     CACHE.lucroBruto = ops
-      .filter(o => o.status === 'GAIN')
-      .reduce((sum, o) => sum + _toNumber(o.resultado), 0);
+      .map(o => _toNumber(o.resultado))
+      .filter(v => v > 0)        // Apenas positivos
+      .reduce((sum, v) => sum + v, 0);
     return CACHE.lucroBruto;
   },
 
   /**
    * Calcula perda bruta com cache.
+   * Perda bruta = soma absoluta de TODOS os resultados negativos
+   * (independentemente de status - usa valor real)
    */
   perdaBruta() {
     if (CACHE.perdaBruta !== null) return CACHE.perdaBruta;
     
     const ops = STATE.operacoes ?? [];
     CACHE.perdaBruta = ops
-      .filter(o => o.status === 'LOSS')
-      .reduce((sum, o) => sum + Math.abs(_toNumber(o.resultado)), 0);
+      .map(o => _toNumber(o.resultado))
+      .filter(v => v < 0)        // Apenas negativos
+      .reduce((sum, v) => sum + Math.abs(v), 0);  // Abs garante positivo
     return CACHE.perdaBruta;
   },
 };
@@ -251,18 +257,16 @@ const calcPnL = {
   },
 
   capitalFinal() {
-    return get.banca_inicial() + this.lucroLiquido();
+    // Usar a mesma lógica que capitalAtual() para manter sincronia
+    // com backend (Python). Acumula dia a dia: 
+    // capital_dia_anterior + realizado - custo_op - imposto_retido
+    return this.capitalAtual();
   },
 
   capitalAtual() {
-    if (typeof STATE !== 'undefined' && STATE.capital_atual?.capital_final !== undefined) {
-      return STATE.capital_atual.capital_final;
-    }
-    // Fallback: recalcula localmente
-    return (STATE.projecao ?? []).reduce((capital, d) => {
-      if (d.realizado === null || d.realizado === '') return capital;
-      return capital + _toNumber(d.realizado) - _toNumber(d.custo_op) - _toNumber(d.imposto_retido);
-    }, get.banca_inicial());
+    // Capital Atual = Banca Inicial + Lucro Líquido
+    // Lucro Líquido = GAIN - LOSS - Custos - Impostos
+    return get.banca_inicial() + this.lucroLiquido();
   },
 
   prejuizoBruto() { return this.perdaBruta(); },
@@ -518,7 +522,7 @@ function atualizarCampos() {
   _setText('planoBancaFinal', fmt.brl(calc.bancaFinal()));
   _setText('capitalAtualDisp', fmt.brl(calc.capitalAtual()));
   _setText('lucroEsperado', fmt.brl(calc.lucroEsperado()));
-  _setText('totalRealizado', fmt.brl(get.realizado_total()));
+  _setText('totalRealizado', fmt.brl(calc.lucroBruto()));
   _setText('prejuizoBruto', fmt.brl(calc.prejuizoBruto()));
   _setText('totalCustosOperacionais', fmt.brl(get.custos_totais()));
   _setText('totalImpostoFonte', fmt.brl(get.impostos_totais()));
@@ -571,6 +575,7 @@ function atualizarCampos() {
 }
 
 function initCalculos() {
+  _invalidateCache();  // Força recalculação
   atualizarCampos();
 }
 

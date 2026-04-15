@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 from decimal import Decimal
 
-from planilha.models import PlanilhaConfig, ProjecaoDia, Operacao, DiarioEntry, Regra
+from .models import PlanilhaConfig, ProjecaoDia, Operacao, DiarioEntry, Regra
 from .serializers import (
     PlanilhaConfigSerializer, ProjecaoDiaSerializer,
     OperacaoSerializer, DiarioEntrySerializer, RegraSerializer,
@@ -155,7 +155,7 @@ class OperacaoViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             # 1. Remove signals temporariamente para evitar recálculo a cada insert
             from django.db.models.signals import post_save, post_delete
-            from planilha.models import operacao_post_save, operacao_post_delete
+            from .models import operacao_post_save, operacao_post_delete
 
             post_save.disconnect(operacao_post_save, sender=Operacao)
             post_delete.disconnect(operacao_post_delete, sender=Operacao)
@@ -185,12 +185,12 @@ class OperacaoViewSet(viewsets.ModelViewSet):
                 post_save.connect(operacao_post_save, sender=Operacao)
                 post_delete.connect(operacao_post_delete, sender=Operacao)
 
-            # 5. Recálculo único: agrupa por dia e atualiza ProjecaoDia
-            from planilha.models import recalcular_cadeia
+            # 5. Recálculo único: agrupa por dia (EXCLUINDO ZERADA) e atualiza ProjecaoDia
+            from .models import recalcular_cadeia
             from collections import defaultdict
 
             totais_por_dia = defaultdict(Decimal)
-            for op in Operacao.objects.filter(user=request.user, month=month):
+            for op in Operacao.objects.filter(user=request.user, month=month).exclude(status='ZERADA'):
                 totais_por_dia[op.dia] += op.resultado or Decimal('0')
 
             # Atualiza/cria ProjecaoDia para cada dia presente nas operações

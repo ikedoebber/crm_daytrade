@@ -14,7 +14,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'accounts',
-    'planilha',
+    'accounts.planilha',  # Planilha está dentro de accounts
 ]
 
 MIDDLEWARE = [

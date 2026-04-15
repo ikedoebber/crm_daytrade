@@ -389,8 +389,7 @@ function calcCapitalPorDia() {
   const dias  = parseInt(c.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
 
   const resultado   = [];
-  let ultimoCapReal = banca;
-  let diasFuturos   = 0; // conta dias consecutivos sem resultado após o último real
+  let capitalAtual  = banca; // capital acumulado apenas com resultados reais
 
   for (let d = 1; d <= dias; d++) {
     const dadoDia    = STATE.projecao.find(p => p.dia === d) || {};
@@ -401,25 +400,24 @@ function calcCapitalPorDia() {
     const temResultado = realizado !== '' && realizado !== null;
 
     let projecaoDia;
-    let capitalFinal = null;
+    let capitalFinal;
     let net          = null;
     let pctMeta      = '—';
     let retorno      = '—';
 
     if (temResultado) {
-      diasFuturos  = 0;
+      // Dia com resultado REAL: calcula capital_final apenas com resultado real
       const r      = parseFloat(realizado) || 0;
       net          = r - custoOp - impostoRet;
-      capitalFinal = ultimoCapReal + net;
-      projecaoDia  = ultimoCapReal; // dia com resultado: projetado = base anterior
+      capitalFinal = capitalAtual + net;  // Capital final = Capital anterior + resultado real
+      projecaoDia  = capitalAtual; // dia com resultado: projetado = base anterior
       pctMeta      = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
       retorno      = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
-      ultimoCapReal = capitalFinal;
+      capitalAtual = capitalFinal; // Atualiza capital apenas com resultado real
     } else {
-      // Dias sem resultado: projeta acumulando +meta a cada dia futuro
-      diasFuturos++;
-      projecaoDia  = d === 1 ? banca : ultimoCapReal + (meta * diasFuturos);
-      capitalFinal = null; // sem resultado real → Capital Final exibe "—"
+      // Dia sem resultado: NÃO calcula capital_final (meta NÃO interfere)
+      capitalFinal = null;
+      projecaoDia  = capitalAtual + meta; // projeção não afeta capital real
     }
 
     resultado.push({ d, projecaoDia, capitalFinal, net, pctMeta, retorno, realizado, custoOp, impostoRet });
@@ -467,11 +465,7 @@ function renderProjecaoTable() {
       resultadoDiaClass = net >= 0 ? 'val-positive' : 'val-negative';
     }
 
-    const capitalFinalCell = (realizado !== '' && realizado !== null)
-      ? fmt.brl(capitalFinal)
-      : (d > 1)
-        ? `<span style="opacity:0.45">${fmt.brl(capitalFinal)}</span>`
-        : '—';
+    const capitalFinalCell = capitalFinal !== null ? fmt.brl(capitalFinal) : '—';
 
     const tr = document.createElement('tr');
     tr.className   = rowClass;
@@ -661,20 +655,16 @@ function buildOpsRow(op, idx) {
     <td class="${resultClass}">
       <input class="tbl-input" type="number" name="resultado" value="${op.resultado||''}" step="0.01" placeholder="0.00">
     </td>
-    <td>
-      <select class="tbl-select" name="status">
-        <option value="GAIN"   ${op.status==='GAIN'  ?'selected':''}>GAIN</option>
-        <option value="LOSS"   ${op.status==='LOSS'  ?'selected':''}>LOSS</option>
-        <option value="ZERADA" ${op.status==='ZERADA'?'selected':''}>ZERADA</option>
-      </select>
-    </td>
+      <td>
+            <span class="status-badge ${op.status === 'GAIN' ? 'gain' : op.status === 'LOSS' ? 'loss' : 'zerada'}">${op.status || 'ZERADA'}</span>
+       </td>
     <td>
       <button type="button" class="btn-delete ops-del-btn" data-idx="${idx}">✕</button>
     </td>
   `;
 
   const autoCalcTriggers = tr.querySelectorAll(
-    'input[name="entrada"], input[name="saida"], input[name="contratos"], input[name="valor_ponto"], select[name="ativo"], select[name="status"]'
+      'input[name="entrada"], input[name="saida"], input[name="contratos"], input[name="valor_ponto"], select[name="ativo"], select[name="tipo"]'
   );
   autoCalcTriggers.forEach(inp => inp.addEventListener('change', () => autoCalcRow(tr)));
   tr.querySelector('.ops-del-btn').addEventListener('click', () => deleteOpsRow(idx));
@@ -699,9 +689,6 @@ function autoCalcRow(tr) {
     vpEl.dataset.auto = 'true';
   }
   const vp = parseFloat(vpEl.value) || 0;
-
-  // FIX: para VENDA, lucro ocorre quando saída < entrada (posição vendida fechada com lucro).
-  // O sinal de "diff" deve ser invertido para VENDA: ganhou quando saiu abaixo de onde vendeu.
   const diffBruto = saida - entrada;
   const diff      = tipo === 'VENDA' ? -diffBruto : diffBruto;
   const pontos    = ativo === 'WDO' ? diff * 1000 : diff;
@@ -718,8 +705,12 @@ function autoCalcRow(tr) {
     // FIX: atualiza td de pontos também
     pontosEl.closest('td').className = pontos >= 0 ? 'val-positive' : 'val-negative';
 
-    const statusSel = tr.querySelector('[name="status"]');
-    statusSel.value = resultado > 0 ? 'GAIN' : resultado < 0 ? 'LOSS' : 'ZERADA';
+    const newStatus = resultado > 0 ? 'GAIN' : resultado < 0 ? 'LOSS' : 'ZERADA';
+    const statusSpan = tr.querySelector('.status-badge');
+    if (statusSpan) {
+      statusSpan.textContent = newStatus;
+      statusSpan.className = 'status-badge ' + (newStatus === 'GAIN' ? 'gain' : newStatus === 'LOSS' ? 'loss' : 'zerada');
+    }
   }
 }
 
@@ -759,7 +750,7 @@ function collectOpsFromTable() {
       valor_ponto: parseFloat(g('valor_ponto')) || 0,
       pontos:      parseFloat(g('pontos'))      || 0,
       resultado:   parseFloat(g('resultado'))   || 0,
-      status:      g('status')                  || 'GAIN',
+      status: tr.querySelector('.status-badge')?.textContent.trim() || 'GAIN',
       month:       STATE.month,
     };
   });
@@ -1218,7 +1209,6 @@ async function savePlano() {
   }
 }
 
-// ─── ESTILIZAÇÃO DE VALORES NEGATIVOS ─────────────
 function applyNegativeValueStyling() {
   const alwaysRedKeywords = ['CUSTO', 'IMPOSTO', 'PREJUÍZO', 'PERDA', 'TAXA', 'RETIDO'];
 
@@ -1250,28 +1240,40 @@ function applyNegativeValueStyling() {
     }
   };
 
+  // 🔥 CORREÇÃO AQUI
   document.querySelectorAll('input[type="number"]').forEach(input => {
+
+    // 🚫 IGNORA custo e imposto (sempre vermelho via CSS)
+    if (
+      input.classList.contains('proj-custo') ||
+      input.classList.contains('proj-imposto')
+    ) return;
+
     const val = parseFloat(input.value);
     if (isNaN(val)) return;
+
     applyClass(input, val);
+
     input.addEventListener('input', function () {
       const v = parseFloat(this.value);
       if (!isNaN(v)) applyClass(this, v);
-    }, { once: false });
+    });
   });
 
-  // FIX: verifica apenas elementos-folha sem filhos de elemento (ignora wrappers com inputs)
   document.querySelectorAll('td, div, span').forEach(el => {
-    // FIX: pula elementos que contêm outros elementos (ex: td com input dentro)
     const hasElementChildren = Array.from(el.children).some(c => c.nodeType === Node.ELEMENT_NODE);
     if (hasElementChildren) return;
+
     const text = el.textContent.trim();
     if (!text || !/\d/.test(text)) return;
+
     const val = extractNum(text);
     if (isNaN(val)) return;
+
     const pText  = el.parentElement?.textContent || '';
     const forceR = isAlwaysRed(pText);
     const isCurr = text.includes('R$');
+
     if (forceR) {
       applyClass(el, -1);
     } else if (val < 0 || (val > 0 && isCurr)) {

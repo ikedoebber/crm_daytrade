@@ -174,11 +174,14 @@ class Regra(models.Model):
 
 def _sincronizar_projecao(user, month, dia):
     """
-    Recalcula ProjecaoDia.realizado somando os resultados das operações do dia,
-    e dispara recalculo da cadeia de capital_final a partir desse dia.
+    Recalcula ProjecaoDia.realizado somando os resultados DAS OPERAÇÕES COM GANHO/PERDA,
+    EXCLUINDO operações ZERADA.
+    Dispara recalculo da cadeia de capital_final a partir desse dia.
     Usa update() direto para não re-disparar signals de ProjecaoDia.
     """
-    operacoes_dia = Operacao.objects.filter(user=user, month=month, dia=dia)
+    operacoes_dia = Operacao.objects.filter(
+        user=user, month=month, dia=dia
+    ).exclude(status='ZERADA')  # Exclui operações zeradas
     total_realizado = sum(op.resultado or Decimal('0') for op in operacoes_dia)
 
     projecao_dia, _ = ProjecaoDia.objects.get_or_create(

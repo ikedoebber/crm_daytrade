@@ -1,18 +1,3 @@
-/* ================================================
-   CALCULOS.JS V2 — Reescrita Completa
-   
-   Melhorias implementadas:
-   ✓ Modularização por domínio (P&L, Performance, Risco)
-   ✓ Cache inteligente de agregações
-   ✓ Validação de dados de entrada
-   ✓ Imposto de Renda implementado (15%)
-   ✓ Redução de código repetido
-   ✓ Melhor documentação
-   ✓ Performance otimizada
-   
-   Interface pública idêntica para compatibilidade
-   ================================================ */
-
 'use strict';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -255,14 +240,9 @@ const calcPnL = {
   },
 
   capitalAtual() {
-    if (typeof STATE !== 'undefined' && STATE.capital_atual?.capital_final !== undefined) {
-      return STATE.capital_atual.capital_final;
-    }
-    // Fallback: recalcula localmente
-    return (STATE.projecao ?? []).reduce((capital, d) => {
-      if (d.realizado === null || d.realizado === '') return capital;
-      return capital + _toNumber(d.realizado) - _toNumber(d.custo_op) - _toNumber(d.imposto_retido);
-    }, get.banca_inicial());
+    // Capital Atual = Banca Inicial + Lucro Líquido
+    // Lucro Líquido = GAIN - LOSS - Custos - Impostos
+    return get.banca_inicial() + this.lucroLiquido();
   },
 
   prejuizoBruto() { return this.perdaBruta(); },
@@ -518,7 +498,7 @@ function atualizarCampos() {
   _setText('planoBancaFinal', fmt.brl(calc.bancaFinal()));
   _setText('capitalAtualDisp', fmt.brl(calc.capitalAtual()));
   _setText('lucroEsperado', fmt.brl(calc.lucroEsperado()));
-  _setText('totalRealizado', fmt.brl(get.realizado_total()));
+  _setText('totalRealizado', fmt.brl(calc.lucroBruto()));
   _setText('prejuizoBruto', fmt.brl(calc.prejuizoBruto()));
   _setText('totalCustosOperacionais', fmt.brl(get.custos_totais()));
   _setText('totalImpostoFonte', fmt.brl(get.impostos_totais()));
