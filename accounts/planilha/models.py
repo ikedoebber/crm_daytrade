@@ -137,6 +137,9 @@ class Operacao(models.Model):
 
     class Meta:
         ordering = ['month', 'dia', 'created_at']
+        indexes = [
+            models.Index(fields=['user', 'month', 'dia']),
+        ]
 
     def __str__(self):
         return f"{self.user.username} — {self.month}/dia{self.dia} {self.ativo} {self.status}"

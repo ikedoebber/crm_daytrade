@@ -1133,6 +1133,18 @@ async function saveRegras() {
   renderRegras();
 }
 
+// ─── DEBOUNCE HELPER ──────────────────────────────
+const debounceMap = new Map();
+
+function debounce(key, fn, delay = 500) {
+  if (debounceMap.has(key)) clearTimeout(debounceMap.get(key));
+  const timeout = setTimeout(() => {
+    fn();
+    debounceMap.delete(key);
+  }, delay);
+  debounceMap.set(key, timeout);
+}
+
 // ─── SALVAR ───────────────────────────────────────
 async function saveConfig(statusId) {
   setStatus(statusId, 'Salvando...');
@@ -1186,6 +1198,11 @@ async function saveOperacoes() {
     console.error(e);
     setStatus('saveOpsStatus', 'Erro!', 'err');
   }
+}
+
+// Versão debounced para evitar múltiplas chamadas seguidas
+function savOperacoesDebounced() {
+  debounce('save-operacoes', saveOperacoes, 800);
 }
 
 async function savePlano() {

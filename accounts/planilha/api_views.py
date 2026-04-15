@@ -139,9 +139,9 @@ class OperacaoViewSet(viewsets.ModelViewSet):
         Recebe: { month: "2026-04", operacoes: [...] }
 
         Estratégia:
-        1. Desconecta signals temporariamente para evitar N recálculos durante o bulk.
-        2. Deleta as operações do mês e recria.
-        3. Ao final, faz UM único recálculo de ProjecaoDia para cada dia afetado.
+        1. Deleta as operações antigas do mês (substitui, não acumula).
+        2. Creates novas operações (sem disparar signals N vezes).
+        3. Faz UM único recálculo de ProjecaoDia para cada dia afetado.
         """
         month = request.data.get('month')
         operacoes_data = request.data.get('operacoes', [])
@@ -153,39 +153,35 @@ class OperacaoViewSet(viewsets.ModelViewSet):
             return Response({'error': 'operacoes deve ser uma lista'}, status=400)
 
         with transaction.atomic():
-            # 1. Remove signals temporariamente para evitar recálculo a cada insert
-            from django.db.models.signals import post_save, post_delete
-            from .models import operacao_post_save, operacao_post_delete
+            # 1. Deleta operações antigas do mês (SIMPLES E SEGURO)
+            Operacao.objects.filter(user=request.user, month=month).delete()
 
-            post_save.disconnect(operacao_post_save, sender=Operacao)
-            post_delete.disconnect(operacao_post_delete, sender=Operacao)
+            # 2. Cria novas operações com bulk_create (sem disparar signals N vezes)
+            created = []
+            erros = []
+            ops_para_criar = []
+            
+            for op in operacoes_data:
+                op_data = {**op, 'month': month, 'user': request.user}
+                serializer = OperacaoSerializer(data=op_data)
+                if serializer.is_valid():
+                    ops_para_criar.append(serializer.validated_data)
+                    created.append(serializer.data)
+                else:
+                    erros.append({'data': op, 'errors': serializer.errors})
 
-            try:
-                # 2. Deleta operações antigas do mês
-                Operacao.objects.filter(user=request.user, month=month).delete()
+            if erros:
+                # Rollback automático pelo transaction.atomic()
+                raise ValueError(f"Erros de validação: {erros}")
 
-                # 3. Cria novas operações
-                created = []
-                erros = []
-                for op in operacoes_data:
-                    op_data = {**op, 'month': month}
-                    serializer = OperacaoSerializer(data=op_data)
-                    if serializer.is_valid():
-                        instance = serializer.save(user=request.user)
-                        created.append(serializer.data)
-                    else:
-                        erros.append({'data': op, 'errors': serializer.errors})
+            # bulk_create sem disparar signals a cada insert
+            if ops_para_criar:
+                Operacao.objects.bulk_create(
+                    [Operacao(**op) for op in ops_para_criar],
+                    batch_size=100
+                )
 
-                if erros:
-                    # Rollback automático pelo transaction.atomic()
-                    raise ValueError(f"Erros de validação: {erros}")
-
-            finally:
-                # 4. Reconecta signals independente de sucesso ou falha
-                post_save.connect(operacao_post_save, sender=Operacao)
-                post_delete.connect(operacao_post_delete, sender=Operacao)
-
-            # 5. Recálculo único: agrupa por dia (EXCLUINDO ZERADA) e atualiza ProjecaoDia
+            # 3. Recálculo ÚNICO: agrupa por dia (EXCLUINDO ZERADA) e atualiza ProjecaoDia
             from .models import recalcular_cadeia
             from collections import defaultdict
 
