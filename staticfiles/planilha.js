@@ -451,9 +451,8 @@ function calcCapitalPorDia() {
 // ─── PROJEÇÃO DIÁRIA ──────────────────────────────
 function renderProjecaoTable() {
   const focusedDia   = document.activeElement?.dataset?.dia;
-  const focusedClass = document.activeElement?.classList?.contains('proj-realizado') ? 'proj-realizado'
-                     : document.activeElement?.classList?.contains('proj-custo')     ? 'proj-custo'
-                     : document.activeElement?.classList?.contains('proj-imposto')   ? 'proj-imposto'
+  const focusedClass = document.activeElement?.classList?.contains('proj-custo')    ? 'proj-custo'
+                     : document.activeElement?.classList?.contains('proj-imposto')  ? 'proj-imposto'
                      : null;
 
   const c    = STATE.config;
@@ -477,7 +476,7 @@ function renderProjecaoTable() {
     const custoOp    = dadoDia.custo_op       ?? 0;
     const impostoRet = dadoDia.imposto_retido ?? 0;
 
-    const realClass = (realizado !== '' && realizado !== null)
+    const realClass = (realizado !== null && realizado !== '')
       ? (parseFloat(realizado) >= 0 ? 'val-positive' : 'val-negative') : '';
 
     let resultadoDia      = '—';
@@ -497,10 +496,8 @@ function renderProjecaoTable() {
       <td style="color:var(--neon);font-weight:700">${d}${isHoje ? ' 🔵' : ''}</td>
       <td style="color:var(--neon3)">${fmt.brl(meta)}</td>
       <td>${fmt.brl(projecaoDia)}</td>
-      <td class="${realClass}">
-        <input class="tbl-input proj-realizado" type="number" data-dia="${d}"
-               value="${realizado !== null && realizado !== '' ? realizado : ''}"
-               placeholder="0.00" step="0.01">
+      <td class="${realClass}" style="font-weight:600">
+        ${realizado !== null && realizado !== '' ? fmt.brl(parseFloat(realizado)) : '—'}
       </td>
       <td>
         <input class="tbl-input proj-custo" type="number" data-dia="${d}"
@@ -518,9 +515,8 @@ function renderProjecaoTable() {
       <td>${retorno}</td>
     `;
 
-    tbody.appendChild(tr); // ← CORREÇÃO 1: linha que estava faltando
+    tbody.appendChild(tr);
 
-    // ── Restaura foco após reconstrução do DOM ──
     if (focusedDia && focusedClass) {
       const el = tbody.querySelector(`.${focusedClass}[data-dia="${focusedDia}"]`);
       if (el) {
@@ -531,11 +527,9 @@ function renderProjecaoTable() {
         }
       }
     }
-  }); // ← CORREÇÃO 2: fecha o forEach corretamente
-} // ← fecha renderProjecaoTable()
+  });
+}
 
-// ─── ATUALIZA SÓ AS CÉLULAS CALCULADAS DA PROJEÇÃO ──
-// CORREÇÃO 3: função movida para fora do forEach e de renderProjecaoTable
 function updateProjecaoComputedCells() {
   const linhas = calcCapitalPorDia();
   const rows   = document.querySelectorAll('#projecaoBody tr');
