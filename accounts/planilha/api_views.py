@@ -162,10 +162,12 @@ class OperacaoViewSet(viewsets.ModelViewSet):
             ops_para_criar = []
             
             for op in operacoes_data:
-                op_data = {**op, 'month': month, 'user': request.user}
+                op_data = {**op, 'month': month}
                 serializer = OperacaoSerializer(data=op_data)
                 if serializer.is_valid():
-                    ops_para_criar.append(serializer.validated_data)
+                    # Adiciona user ao validated_data (serializer exclui user)
+                    validated_op = {**serializer.validated_data, 'user': request.user}
+                    ops_para_criar.append(validated_op)
                     created.append(serializer.data)
                 else:
                     erros.append({'data': op, 'errors': serializer.errors})

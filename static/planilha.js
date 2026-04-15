@@ -17,6 +17,23 @@ const STATE = {
   capital_atual:{},   // dados do endpoint /api/projecao/capital-atual/
 };
 
+// ─── PROTEÇÃO GLOBAL CONTRA MULTIPLE REQUESTS ────
+const REQUEST_GUARD = {
+  pending: new Set(),  // URls com requisição em andamento
+  
+  canRequest(url) {
+    return !this.pending.has(url);
+  },
+  
+  markPending(url) {
+    this.pending.add(url);
+  },
+  
+  markComplete(url) {
+    this.pending.delete(url);
+  }
+};
+
 // ─── DEFAULTS DE CONFIGURAÇÃO ────────────────────
 const CONFIG_DEFAULTS = {
   banca_inicial:                1,
@@ -1071,17 +1088,29 @@ function renderDiario() {
 }
 
 async function saveDiario() {
+  const url = '/api/diario/';
+  
   const texto = document.getElementById('plano_diario')?.value.trim();
   if (!texto) { setStatus('saveDiarioStatus', 'Digite algo antes de salvar.', 'err'); return; }
+  
+  if (!REQUEST_GUARD.canRequest(url)) {
+    console.warn('⚠️ Salvar Diário já em andamento, ignorando...');
+    return;
+  }
+  
+  REQUEST_GUARD.markPending(url);
   setStatus('saveDiarioStatus', 'Salvando...');
+  
   try {
-    const entry = await API.post('/api/diario/', { month: STATE.month, conteudo: texto });
+    const entry = await API.post(url, { month: STATE.month, conteudo: texto });
     STATE.diario.unshift(entry);
     document.getElementById('plano_diario').value = '';
     renderDiario();
     setStatus('saveDiarioStatus', '✓ Salvo!', 'ok');
   } catch {
     setStatus('saveDiarioStatus', 'Erro ao salvar.', 'err');
+  } finally {
+    REQUEST_GUARD.markComplete(url);
   }
 }
 
@@ -1127,10 +1156,23 @@ function addRegra() {
 }
 
 async function saveRegras() {
-  const regrasList = STATE.regras.map((r, i) => ({ texto: r.texto, ordem: i }));
-  const refreshed  = await API.post('/api/regras/bulk-sync/', regrasList);
-  STATE.regras = refreshed;
-  renderRegras();
+  const url = '/api/regras/bulk-sync/';
+  
+  if (!REQUEST_GUARD.canRequest(url)) {
+    console.warn('⚠️ Salvar Regras já em andamento, ignorando...');
+    return;
+  }
+  
+  REQUEST_GUARD.markPending(url);
+  
+  try {
+    const regrasList = STATE.regras.map((r, i) => ({ texto: r.texto, ordem: i }));
+    const refreshed  = await API.post(url, regrasList);
+    STATE.regras = refreshed;
+    renderRegras();
+  } finally {
+    REQUEST_GUARD.markComplete(url);
+  }
 }
 
 // ─── DEBOUNCE HELPER ──────────────────────────────
@@ -1147,21 +1189,42 @@ function debounce(key, fn, delay = 500) {
 
 // ─── SALVAR ───────────────────────────────────────
 async function saveConfig(statusId) {
+  const url = '/api/config/upsert/';
+  
+  // 🚫 PROTEÇÃO: Se já há request em andamento, ignora
+  if (!REQUEST_GUARD.canRequest(url)) {
+    console.warn('⚠️ Salvar Config já em andamento, ignorando...');
+    return;
+  }
+  
+  REQUEST_GUARD.markPending(url);
   setStatus(statusId, 'Salvando...');
+  
   try {
     const data   = getConfigFromInputs();
-    const result = await API.post('/api/config/upsert/', data);
+    const result = await API.post(url, data);
     STATE.config  = result;
     await postSaveRender();
     setStatus(statusId, '✓ Salvo!', 'ok');
   } catch (e) {
     console.error(e);
     setStatus(statusId, 'Erro!', 'err');
+  } finally {
+    REQUEST_GUARD.markComplete(url);
   }
 }
 
 async function saveProjecao() {
+  const url = '/api/projecao/bulk/';
+  
+  if (!REQUEST_GUARD.canRequest(url)) {
+    console.warn('⚠️ Salvar Projeção já em andamento, ignorando...');
+    return;
+  }
+  
+  REQUEST_GUARD.markPending(url);
   setStatus('saveProjecaoStatus', 'Salvando...');
+  
   try {
     const items = Array.from(document.querySelectorAll('#projecaoBody tr')).map(tr => {
       const dia   = parseInt(tr.dataset.dia);
@@ -1176,27 +1239,40 @@ async function saveProjecao() {
         imposto_retido: parseFloat(imp)   || 0,
       };
     });
-    const result   = await API.post('/api/projecao/bulk/', items);
+    const result   = await API.post(url, items);
     STATE.projecao = result;
     await postSaveRender();
     setStatus('saveProjecaoStatus', '✓ Salvo!', 'ok');
   } catch (e) {
     console.error(e);
     setStatus('saveProjecaoStatus', 'Erro!', 'err');
+  } finally {
+    REQUEST_GUARD.markComplete(url);
   }
 }
 
 async function saveOperacoes() {
+  const url = '/api/operacoes/bulk-sync/';
+  
+  if (!REQUEST_GUARD.canRequest(url)) {
+    console.warn('⚠️ Salvar Operações já em andamento, ignorando...');
+    return;
+  }
+  
+  REQUEST_GUARD.markPending(url);
   setStatus('saveOpsStatus', 'Salvando...');
+  
   try {
     const ops       = collectOpsFromTable();
-    const result    = await API.post('/api/operacoes/bulk-sync/', { month: STATE.month, operacoes: ops });
+    const result    = await API.post(url, { month: STATE.month, operacoes: ops });
     STATE.operacoes = result;
     await postSaveRender();
     setStatus('saveOpsStatus', '✓ Salvo!', 'ok');
   } catch (e) {
     console.error(e);
     setStatus('saveOpsStatus', 'Erro!', 'err');
+  } finally {
+    REQUEST_GUARD.markComplete(url);
   }
 }
 
@@ -1206,13 +1282,22 @@ function savOperacoesDebounced() {
 }
 
 async function savePlano() {
+  const url = '/api/config/upsert/';  // config e regras usam URLs separadas
+  
+  if (!REQUEST_GUARD.canRequest(url)) {
+    console.warn('⚠️ Salvar Plano já em andamento, ignorando...');
+    return;
+  }
+  
+  REQUEST_GUARD.markPending(url);
   setStatus('savePlanoStatus', 'Salvando...');
+  
   try {
     // FIX: salva config e regras em paralelo para evitar duplo postSaveRender
     const configData = getConfigFromInputs();
     const regrasList = STATE.regras.map((r, i) => ({ texto: r.texto, ordem: i }));
     const [configResult, regrasResult] = await Promise.all([
-      API.post('/api/config/upsert/', configData),
+      API.post(url, configData),
       API.post('/api/regras/bulk-sync/', regrasList),
     ]);
     STATE.config = configResult;
@@ -1223,6 +1308,8 @@ async function savePlano() {
   } catch (e) {
     console.error(e);
     setStatus('savePlanoStatus', 'Erro!', 'err');
+  } finally {
+    REQUEST_GUARD.markComplete(url);
   }
 }
 
