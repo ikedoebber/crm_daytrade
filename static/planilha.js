@@ -405,8 +405,10 @@ function calcCapitalPorDia() {
   const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
   const dias  = parseInt(c.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
 
-  const resultado   = [];
-  let capitalAtual  = banca; // capital acumulado apenas com resultados reais
+  const resultado  = [];
+  let capitalAtual = banca;   // acumula resultados reais
+  let ultimoCapReal = banca;  // último capital real conhecido
+  let ultimoDiaReal = 0;      // último dia que teve resultado
 
   for (let d = 1; d <= dias; d++) {
     const dadoDia    = STATE.projecao.find(p => p.dia === d) || {};
@@ -417,24 +419,27 @@ function calcCapitalPorDia() {
     const temResultado = realizado !== '' && realizado !== null;
 
     let projecaoDia;
-    let capitalFinal;
+    let capitalFinal = null;
     let net          = null;
     let pctMeta      = '—';
     let retorno      = '—';
 
     if (temResultado) {
-      // Dia com resultado REAL: calcula capital_final apenas com resultado real
+      // Dia com resultado: capital projetado = capital com que iniciou o dia
+      projecaoDia  = capitalAtual;
       const r      = parseFloat(realizado) || 0;
       net          = r - custoOp - impostoRet;
-      capitalFinal = capitalAtual + net;  // Capital final = Capital anterior + resultado real
-      projecaoDia  = capitalAtual; // dia com resultado: projetado = base anterior
+      capitalFinal = capitalAtual + net;
       pctMeta      = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
       retorno      = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
-      capitalAtual = capitalFinal; // Atualiza capital apenas com resultado real
+      capitalAtual  = capitalFinal;
+      ultimoCapReal = capitalFinal;
+      ultimoDiaReal = d;
     } else {
-      // Dia sem resultado: NÃO calcula capital_final (meta NÃO interfere)
-      capitalFinal = null;
-      projecaoDia  = capitalAtual + meta; // projeção não afeta capital real
+      // Dia futuro: projeta a partir do último capital real + meta × dias à frente
+      // → mostra quando volta ao positivo seguindo a meta
+      const passos = d - ultimoDiaReal;
+      projecaoDia  = ultimoCapReal + meta * passos;
     }
 
     resultado.push({ d, projecaoDia, capitalFinal, net, pctMeta, retorno, realizado, custoOp, impostoRet });
