@@ -313,90 +313,165 @@ function renderCalendar() {
   const c    = STATE.config;
   const meta = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
   const [y, m] = STATE.month.split('-').map(Number);
-
-  // Pega total de dias do mês (independente de dias_uteis)
   const diasDoMes = new Date(y, m, 0).getDate();
+  const firstDay  = new Date(y, m - 1, 1).getDay();
+  const hoje      = new Date();
 
-  // Pega primeiro dia da semana (0=domingo)
-  const firstDay = new Date(y, m - 1, 1).getDay();
+  // Cabeçalho dos dias da semana
+  const header = document.createElement('div');
+  header.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px';
+  ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].forEach(dia => {
+    const s = document.createElement('span');
+    s.textContent = dia;
+    s.style.cssText = 'text-align:center;font-size:10px;color:var(--muted);font-family:var(--mono);padding:4px 0;letter-spacing:0.06em;text-transform:uppercase';
+    header.appendChild(s);
+  });
+  container.appendChild(header);
 
-  // Adiciona "dias vazios" antes do primeiro dia do mês
+  // Grid dos dias
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:6px';
+
+  // Células vazias antes do dia 1
   for (let i = 0; i < firstDay; i++) {
     const empty = document.createElement('div');
-    empty.className = 'calendar-day';
-    empty.style.opacity = '0';
-    empty.style.pointerEvents = 'none';
-    container.appendChild(empty);
+    empty.style.cssText = 'min-height:80px';
+    grid.appendChild(empty);
   }
 
-  // Cria todos os dias do mês
+  // Pré-calcula os dados de capital por dia para reutilizar
+  const linhasCapital = calcCapitalPorDia();
+
   for (let d = 1; d <= diasDoMes; d++) {
-    const dadoDia = STATE.projecao.find(p => p.dia === d);
-    const realizado = dadoDia?.realizado;
-    const capitalFinal = dadoDia?.capital_final;
+    const dataLinha  = new Date(y, m - 1, d);
+    const isHoje     = dataLinha.toDateString() === hoje.toDateString();
+    const dadoDia    = STATE.projecao.find(p => p.dia === d) || {};
+    const realizado  = dadoDia.realizado;
+    const linhaCalc  = linhasCapital.find(l => l.d === d) || {};
+
+    // net = resultado já descontado de custo_op e imposto_retido (calculado em calcCapitalPorDia)
+    const net         = linhaCalc.net;          // null se não há dado
+    const capitalFinal = linhaCalc.capitalFinal; // null se não há dado
+
+    const temDado = realizado !== null && realizado !== undefined && realizado !== '';
 
     const dia = document.createElement('div');
-    dia.className = 'calendar-day';
+    dia.style.cssText = `
+      border-radius:10px;
+      min-height:80px;
+      padding:8px 7px;
+      display:flex;
+      flex-direction:column;
+      gap:3px;
+      position:relative;
+      cursor:default;
+      transition:border-color 0.15s, box-shadow 0.15s;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-family: var(--mono);
+    `;
 
-    let status = 'neutral';
-    let icon = '◯';
+    // Data formatada: "02/Abr"
+    const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    const dateLabel = `${String(d).padStart(2,'0')}/${meses[m-1]}`;
 
-    // Determina classe e ícone
-    if (realizado === null || realizado === undefined || realizado === '') {
-      status = 'neutral';
-      icon = '◯';
-    } else {
-      const val = parseFloat(realizado);
-      const pctMeta = meta > 0 ? (val / meta) * 100 : 0;
+    // Número do dia
+    const numEl = document.createElement('span');
+    numEl.textContent = d;
+    numEl.style.cssText = 'font-size:12px;font-weight:700;line-height:1;color:var(--text)';
 
-      if (val > 0) {
-        status = 'positive';
-        icon = pctMeta >= 100 ? '✓' : '↗';
-      } else if (val < 0) {
-        status = 'negative';
-        icon = '✕';
-      } else {
-        status = 'neutral';
-        icon = '═';
+    // Data
+    const dateEl = document.createElement('span');
+    dateEl.textContent = dateLabel;
+    dateEl.style.cssText = 'font-size:9px;color:var(--muted);line-height:1;letter-spacing:0.04em';
+
+    dia.appendChild(numEl);
+    dia.appendChild(dateEl);
+    dia.setAttribute('data-cal', 'true');
+
+    if (isHoje) {
+      dia.style.border = '1.5px solid var(--neon2)';
+      numEl.style.color = 'var(--neon2)';
+      dateEl.style.color = 'var(--neon2)';
+    }
+
+    if (temDado) {
+      const r      = parseFloat(realizado);
+      const netVal = net !== null ? net : r;
+
+      const colorNet  = netVal > 0 ? '#22d987' : netVal < 0 ? '#ff4c6a' : '#8892a4';
+      const colorBg   = netVal > 0
+        ? 'linear-gradient(145deg, rgba(34,217,135,0.15) 0%, rgba(34,217,135,0.05) 100%)'
+        : netVal < 0
+        ? 'linear-gradient(145deg, rgba(255,76,106,0.15) 0%, rgba(255,76,106,0.05) 100%)'
+        : 'linear-gradient(145deg, rgba(136,146,164,0.1) 0%, rgba(136,146,164,0.04) 100%)';
+      const colorBorder = netVal > 0
+        ? 'rgba(34,217,135,0.3)'
+        : netVal < 0
+        ? 'rgba(255,76,106,0.28)'
+        : 'rgba(136,146,164,0.2)';
+
+      dia.style.background  = colorBg;
+      dia.style.borderColor = colorBorder;
+      numEl.style.color     = colorNet;
+      dateEl.style.color    = netVal > 0 ? 'rgba(34,217,135,0.7)' : netVal < 0 ? 'rgba(255,76,106,0.65)' : '#8892a4';
+
+      // Ícone
+      const icon = document.createElement('span');
+      icon.textContent   = netVal > 0 ? '↗' : netVal < 0 ? '↘' : '→';
+      icon.style.cssText = `position:absolute;top:6px;right:7px;font-size:12px;color:${colorNet};opacity:0.85`;
+      dia.appendChild(icon);
+
+      // Bruto (só aparece quando há custo ou imposto para destacar a diferença)
+      if (linhaCalc.custoOp || linhaCalc.impostoRet) {
+        const brutoEl = document.createElement('span');
+        brutoEl.textContent   = `Bruto: ${fmt.brl(r)}`;
+        brutoEl.style.cssText = 'font-size:9px;color:#8892a4;line-height:1.3;display:block;margin-top:3px;';
+        dia.appendChild(brutoEl);
+
+        if (linhaCalc.custoOp) {
+          const custoEl = document.createElement('span');
+          custoEl.textContent   = `Custo: -${fmt.brl(linhaCalc.custoOp)}`;
+          custoEl.style.cssText = 'font-size:9px;color:#ff4c6a;line-height:1.3;display:block;';
+          dia.appendChild(custoEl);
+        }
+
+        if (linhaCalc.impostoRet) {
+          const impEl = document.createElement('span');
+          impEl.textContent   = `Imposto: -${fmt.brl(linhaCalc.impostoRet)}`;
+          impEl.style.cssText = 'font-size:9px;color:#ff4c6a;line-height:1.3;display:block;';
+          dia.appendChild(impEl);
+        }
+      }
+
+      // Líquido — destaque principal
+      const resEl = document.createElement('span');
+      resEl.textContent   = `${netVal >= 0 ? '+' : ''}${fmt.brl(netVal)}`;
+      resEl.style.cssText = `font-size:11px;font-weight:700;line-height:1.3;margin-top:3px;display:block;color:${colorNet};`;
+      dia.appendChild(resEl);
+
+      // Capital final
+      if (capitalFinal !== null) {
+        const capEl = document.createElement('span');
+        capEl.textContent   = fmt.brl(capitalFinal);
+        capEl.style.cssText = 'font-size:9.5px;color:#1ee8b7;font-weight:700;margin-top:1px;display:block;';
+        dia.appendChild(capEl);
+      }
+
+      // % da meta
+      if (meta > 0) {
+        const pctVal = ((r / meta) * 100).toFixed(0);
+        const metaEl = document.createElement('span');
+        metaEl.textContent   = `Meta: ${pctVal}%`;
+        metaEl.style.cssText = 'font-size:9px;color:#8892a4;line-height:1.3;display:block;margin-top:1px;';
+        dia.appendChild(metaEl);
       }
     }
 
-    dia.classList.add(status);
-
-    // Estrutura do dia melhorada
-    const header = document.createElement('div');
-    header.className = 'calendar-day-header';
-    header.innerHTML = `<span class="calendar-day-icon">${icon}</span><span class="calendar-day-num">${d}</span>`;
-    dia.appendChild(header);
-
-    // Valor em BRL
-    if (realizado !== null && realizado !== undefined && realizado !== '') {
-      const value = document.createElement('div');
-      value.className = 'calendar-day-value';
-      const val = parseFloat(realizado);
-      value.textContent = fmt.brl(val);
-      dia.appendChild(value);
-    }
-
-    // Tooltip interativo com mais detalhes
-    if (realizado !== null && realizado !== undefined && realizado !== '') {
-      const tooltip = document.createElement('div');
-      tooltip.className = 'calendar-tooltip';
-
-      const val = parseFloat(realizado);
-      const pctMeta = meta > 0 ? ((val / meta) * 100).toFixed(0) : 0;
-      const capitalStr = capitalFinal ? fmt.brl(capitalFinal) : '—';
-
-      tooltip.innerHTML = `
-        <div style="font-weight:600;margin-bottom:4px">${fmt.brl(val)}</div>
-        <div style="font-size:9px;opacity:0.8">Meta: ${pctMeta}%</div>
-        <div style="font-size:9px;opacity:0.8">Capital: ${capitalStr}</div>
-      `;
-      dia.appendChild(tooltip);
-    }
-
-    container.appendChild(dia);
+    grid.appendChild(dia);
   }
+
+  container.appendChild(grid);
 }
 
 function calcCapitalPorDia() {
@@ -644,10 +719,18 @@ function buildOpsRow(op, idx) {
   const tr = document.createElement('tr');
   tr.dataset.idx = idx;
 
+  const [oy, om] = STATE.month.split('-').map(Number);
+  const diaNum = op.dia || 1;
+
   const resultClass = (parseFloat(op.resultado) || 0) >= 0 ? 'val-positive' : 'val-negative';
 
   tr.innerHTML = `
-    <td><input class="tbl-input" type="number" name="dia" value="${op.dia||1}" min="1" max="31" style="width:50px"></td>
+    <td><input class="tbl-input" type="number" name="dia" value="${diaNum}" min="1" max="31" style="width:50px"></td>
+    <td>
+      <input class="tbl-input" type="date" name="data_cal"
+             value="${STATE.month}-${String(diaNum).padStart(2,'0')}"
+             style="width:130px;color:var(--neon);font-family:var(--mono);font-size:11px">
+    </td>
     <td>
       <select class="tbl-select" name="tipo">
         <option value="COMPRA" ${op.tipo==='COMPRA'?'selected':''}>COMPRA</option>
@@ -671,9 +754,9 @@ function buildOpsRow(op, idx) {
     <td class="${resultClass}">
       <input class="tbl-input" type="number" name="resultado" value="${op.resultado||''}" step="0.01" placeholder="0.00">
     </td>
-      <td>
-            <span class="status-badge ${op.status === 'GAIN' ? 'gain' : op.status === 'LOSS' ? 'loss' : 'zerada'}">${op.status || 'ZERADA'}</span>
-       </td>
+    <td>
+      <span class="status-badge ${op.status === 'GAIN' ? 'gain' : op.status === 'LOSS' ? 'loss' : 'zerada'}">${op.status || 'ZERADA'}</span>
+    </td>
     <td>
       <button type="button" class="btn-delete ops-del-btn" data-idx="${idx}">✕</button>
     </td>
@@ -1213,31 +1296,42 @@ async function saveConfig(statusId) {
   }
 }
 
+// ─── SUBSTITUIR a função saveProjecao inteira no planilha.js ───────────────
+
 async function saveProjecao() {
   const url = '/api/projecao/bulk/';
-  
+
   if (!REQUEST_GUARD.canRequest(url)) {
     console.warn('⚠️ Salvar Projeção já em andamento, ignorando...');
     return;
   }
-  
+
   REQUEST_GUARD.markPending(url);
   setStatus('saveProjecaoStatus', 'Salvando...');
-  
+
   try {
     const items = Array.from(document.querySelectorAll('#projecaoBody tr')).map(tr => {
-      const dia   = parseInt(tr.dataset.dia);
-      const real  = tr.querySelector('.proj-realizado')?.value;
+      const dia = parseInt(tr.dataset.dia);
+
+      // Lê custo e imposto dos inputs do DOM (existem na tabela)
       const custo = tr.querySelector('.proj-custo')?.value;
       const imp   = tr.querySelector('.proj-imposto')?.value;
+
+      // ✅ FIX: lê realizado do STATE — não há input .proj-realizado no DOM,
+      // o valor é exibido como texto estático. Ler do DOM sempre retornaria null.
+      const dadoDia = STATE.projecao.find(p => p.dia === dia) || {};
+
       return {
         month:          STATE.month,
         dia,
-        realizado:      real !== '' ? (parseFloat(real) ?? null) : null,
+        realizado:      dadoDia.realizado !== undefined && dadoDia.realizado !== ''
+                          ? dadoDia.realizado
+                          : null,
         custo_op:       parseFloat(custo) || 0,
         imposto_retido: parseFloat(imp)   || 0,
       };
     });
+
     const result   = await API.post(url, items);
     STATE.projecao = result;
     await postSaveRender();
@@ -1473,3 +1567,157 @@ document.addEventListener('DOMContentLoaded', () => {
   bindEvents();
   loadAll(STATE.month);
 });
+
+/* ════════════════════════════════════════════════════════
+   SIDEBAR — Add this block to planilha.js (top-level,
+   runs after DOMContentLoaded)
+   ════════════════════════════════════════════════════════ */
+
+(function initSidebar() {
+  /* ── Elements ─────────────────────────────── */
+  const sidebar      = document.querySelector('.sidebar');
+  const mainLayout   = document.querySelector('.main-layout');
+  const mainContent  = document.querySelector('.main-content');
+  const toggleBtn    = document.getElementById('sidebarToggle');
+  const sidebarItems = document.querySelectorAll('.sidebar-nav-item');
+
+  if (!sidebar) return;   // guard if sidebar not in DOM
+
+  /* ── Backdrop (mobile overlay) ────────────── */
+  const backdrop = document.createElement('div');
+  backdrop.className = 'sidebar-backdrop';
+  document.body.appendChild(backdrop);
+
+  /* ── Mobile trigger button ────────────────── */
+  const mobileTrigger = document.createElement('button');
+  mobileTrigger.className = 'sidebar-mobile-trigger';
+  mobileTrigger.setAttribute('aria-label', 'Open menu');
+  mobileTrigger.innerHTML = '<span></span><span></span><span></span>';
+  document.body.appendChild(mobileTrigger);
+
+  /* ── Persist collapse state ───────────────── */
+  const STORAGE_KEY = 'sidebar_collapsed';
+  let isCollapsed = localStorage.getItem(STORAGE_KEY) === 'true';
+  let isMobile    = window.innerWidth <= 900;
+
+  /* ── Data-label attributes for collapsed tooltips ── */
+  sidebarItems.forEach(item => {
+    const label = item.querySelector('.label');
+    if (label) item.setAttribute('data-label', label.textContent.trim());
+  });
+
+  /* ── Apply collapse (desktop only) ───────── */
+  function applyCollapse(collapsed) {
+    if (isMobile) return;
+    isCollapsed = collapsed;
+    sidebar.classList.toggle('collapsed', collapsed);
+    mainContent.style.marginLeft = collapsed ? '60px' : '220px';
+    localStorage.setItem(STORAGE_KEY, collapsed);
+  }
+
+  /* ── Init state ───────────────────────────── */
+  function initState() {
+    isMobile = window.innerWidth <= 900;
+    if (isMobile) {
+      sidebar.classList.remove('collapsed');
+      mainContent.style.marginLeft = '0';
+    } else {
+      applyCollapse(isCollapsed);
+    }
+  }
+
+  initState();
+
+  /* ── Toggle (desktop: collapse/expand) ──────────────────
+        (mobile: handled via mobileTrigger)             */
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      if (isMobile) {
+        openMobile();
+      } else {
+        applyCollapse(!isCollapsed);
+      }
+    });
+  }
+
+  /* ── Mobile open/close ────────────────────── */
+  function openMobile() {
+    sidebar.classList.add('mobile-open');
+    backdrop.classList.add('visible');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMobile() {
+    sidebar.classList.remove('mobile-open');
+    backdrop.classList.remove('visible');
+    document.body.style.overflow = '';
+  }
+
+  mobileTrigger.addEventListener('click', openMobile);
+  backdrop.addEventListener('click', closeMobile);
+
+  /* ── Resize handler ───────────────────────── */
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const wasMobile = isMobile;
+      isMobile = window.innerWidth <= 900;
+      if (wasMobile !== isMobile) {
+        if (!isMobile) {
+          closeMobile();
+          applyCollapse(isCollapsed);
+        } else {
+          sidebar.classList.remove('collapsed');
+          mainContent.style.marginLeft = '0';
+        }
+      }
+    }, 100);
+  });
+
+  /* ── TAB SWITCHING ────────────────────────── */
+  // All clickable tab triggers (both top-nav .tab and sidebar .sidebar-nav-item)
+  const topTabs      = document.querySelectorAll('nav .tab[data-tab]');
+  const allContents  = document.querySelectorAll('.tab-content');
+
+  function switchTab(tabName) {
+    /* Hide all content panels */
+    allContents.forEach(el => el.classList.remove('active'));
+
+    /* Deactivate all tab buttons (top nav) */
+    topTabs.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabName));
+
+    /* Deactivate all sidebar items */
+    sidebarItems.forEach(item => item.classList.toggle('active', item.dataset.tab === tabName));
+
+    /* Show selected panel */
+    const panel = document.getElementById('tab-' + tabName);
+    if (panel) {
+      panel.classList.add('active');
+      // Scroll main content to top on tab switch
+      mainContent.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* On mobile: close sidebar after selection */
+    if (isMobile) closeMobile();
+  }
+
+  /* Wire up sidebar nav items */
+  sidebarItems.forEach(item => {
+    item.addEventListener('click', () => switchTab(item.dataset.tab));
+  });
+
+  /* Wire up top nav tabs (override any existing listener by replacing) */
+  topTabs.forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  /* ── Determine active tab on load ─────────── */
+  // Read from currently-active .tab or .tab-content
+  const activeTopTab = document.querySelector('nav .tab.active');
+  if (activeTopTab) {
+    switchTab(activeTopTab.dataset.tab);
+  } else {
+    switchTab('dashboard'); // fallback
+  }
+})();

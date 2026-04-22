@@ -4,13 +4,49 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Planilha do Trader Eficiente</title>
+<title>Planilha do Trader Consistente</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link rel="stylesheet" href="{% static 'planilha.css' %}">
 </head>
 <body>
-<div class="container">
+<div class="main-layout">
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">Menu</div>
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+    
+    <nav class="sidebar-nav">
+      <button class="sidebar-nav-item active" data-tab="dashboard">
+        <span class="icon">📊</span>
+        <span class="label">Dashboard</span>
+      </button>
+      <button class="sidebar-nav-item" data-tab="projecao">
+        <span class="icon">📈</span>
+        <span class="label">Projeção Diária</span>
+      </button>
+      <button class="sidebar-nav-item" data-tab="operacoes">
+        <span class="icon">💼</span>
+        <span class="label">Operações</span>
+      </button>
+      <button class="sidebar-nav-item" data-tab="relatorios">
+        <span class="icon">📋</span>
+        <span class="label">Relatórios</span>
+      </button>
+      <button class="sidebar-nav-item" data-tab="plano">
+        <span class="icon">✍️</span>
+        <span class="label">Plano de Trader</span>
+      </button>
+    </nav>
+  </aside>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <div class="main-content">
+  <div class="container">
 
   <header>
     <div class="header-inner">
@@ -29,13 +65,6 @@
         <button type="button" class="logout-button" onclick="document.getElementById('logoutForm').submit()">Sair</button>
       </div>
     </div>
-    <nav>
-      <button type="button" class="tab active" data-tab="dashboard">Dashboard</button>
-      <button type="button" class="tab" data-tab="projecao">Projeção Diária</button>
-      <button type="button" class="tab" data-tab="operacoes">Operações</button>
-      <button type="button" class="tab" data-tab="relatorios">Relatórios</button>
-      <button type="button" class="tab" data-tab="plano">Plano de Trader</button>
-    </nav>
   </header>
 
 <!-- ======= DASHBOARD ======= -->
@@ -138,7 +167,7 @@
     <!-- Calendário de Performance -->
   <div class="section-title">Calendário de Performance</div>
   <div class="card">
-    <div id="calendarContainer" class="calendar-grid"></div>
+    <div id="calendarContainer"></div>
     <div style="display:flex;gap:24px;margin-top:20px;font-size:11px;flex-wrap:wrap;justify-content:center">
       <span style="display:flex;align-items:center;gap:6px">
         <div style="width:16px;height:16px;border-radius:4px;background:#22d987"></div>
@@ -183,25 +212,25 @@
     <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:16px;">
       Preencha a coluna <span style="color:var(--neon)">Realizado</span> com o resultado de cada dia.
     </p>
-    <div class="table-wrap">
-      <table id="tabelaProjecao">
-      <thead>
-        <tr>
-        <th>DIA</th>
-        <th>META DIA</th>
-        <th>CAPITAL PROJETADO</th>
-        <th>REALIZADO</th>
-        <th>CUSTO OPERACIONAL</th>
-        <th>IMPOSTO RETIDO</th>
-        <th>RESULTADO DIA</th>
-        <th>% DA META</th>
-        <th>CAPITAL FINAL</th>
-        <th>RETORNO</th>
-        </tr>
-      </thead>
-        <tbody id="projecaoBody"></tbody>
-      </table>
-    </div>
+      <div class="table-wrap">
+        <table id="tabelaProjecao">
+          <thead>
+            <tr>
+              <th>DIA</th>
+              <th>META DIA</th>
+              <th>CAPITAL PROJETADO</th>
+              <th>REALIZADO</th>
+              <th>CUSTO OPERACIONAL</th>
+              <th>IMPOSTO RETIDO</th>
+              <th>RESULTADO DIA</th>
+              <th>% DA META</th>
+              <th>CAPITAL FINAL</th>
+              <th>RETORNO</th>
+            </tr>
+          </thead>
+          <tbody id="projecaoBody"></tbody>
+        </table>
+      </div>
     <div style="display:flex;justify-content:flex-end;margin-top:16px;">
       <button type="button" id="saveProjecaoBtn" class="btn-save">💾 Salvar Projeção</button>
       <span id="saveProjecaoStatus" class="save-status"></span>
@@ -270,9 +299,10 @@
     <div class="section-title" style="margin-top:32px">Registro Detalhado de Operações</div>
     <div class="table-wrap">
       <table id="tabelaOpsDetalhada">
-        <thead>
+      <thead>
           <tr>
             <th>DIA</th>
+            <th>DATA</th>  
             <th>TIPO</th>
             <th>ATIVO</th>
             <th>ENTRADA</th>
@@ -284,10 +314,10 @@
             <th>STATUS</th>
             <th>AÇÕES</th>
           </tr>
-        </thead>
-        <tbody id="opsDetalhadaBody"></tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody id="opsDetalhadaBody"></tbody>
+        </table>
+      </div>
 
     <div style="display:flex;gap:12px;margin:24px 0;justify-content:flex-end;flex-wrap:wrap;align-items:center;">
       <button type="button" id="addOpsDetalhadaRow" class="btn-add">+ Adicionar Operação</button>
@@ -458,11 +488,13 @@
     </div>
   </div>
 
-</div><!-- /container -->
-
 <form id="logoutForm" method="post" action="{% url 'logout' %}" style="display:none">
   {% csrf_token %}
 </form>
+
+  </div><!-- /container -->
+  </div><!-- /main-content -->
+</div><!-- /main-layout -->
 
 <script>
   // CSRF token para fetch()
