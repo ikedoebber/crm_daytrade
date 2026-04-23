@@ -122,6 +122,7 @@ class Operacao(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='operacoes')
     month = models.CharField(max_length=7)
     dia = models.IntegerField()
+    data_cal = models.DateField(null=True, blank=True)
 
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, default='COMPRA')
     ativo = models.CharField(max_length=10, choices=ATIVO_CHOICES, default='WIN')

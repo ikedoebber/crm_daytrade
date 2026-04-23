@@ -243,15 +243,20 @@ function renderDashboard() {
 
   const diasFeitos = STATE.projecao.filter(d => d.realizado !== null && d.realizado !== '').length;
   const pctVal     = dias > 0 ? Math.min(100, (diasFeitos / dias) * 100) : 0;
-  const el         = document.getElementById('progressBar');
+
+  const el = document.getElementById('progressBar');
   if (el) el.style.width = pctVal + '%';
+
   const elPct = document.getElementById('progressPct');
   if (elPct) elPct.textContent = pctVal.toFixed(0) + '%';
 
-  const setEl = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+  const setEl = (id, val) => {
+    const e = document.getElementById(id);
+    if (e) e.textContent = val;
+  };
 
-  setEl('totalDiasDisp',     dias);
-  setEl('diasPercorridos',   diasFeitos);
+  setEl('totalDiasDisp',   dias);
+  setEl('diasPercorridos', diasFeitos);
 
   if (STATE.capital_atual?.capital_final !== undefined) {
     setEl('capitalAtualFromDB', fmt.brl(STATE.capital_atual.capital_final));
@@ -268,28 +273,32 @@ function renderDashboard() {
   setEl('sumLoss',  losses);
   setEl('sumZero',  zeros);
   setEl('sumTotal', ops.length);
-  setEl('sumWR',    (gains + losses) > 0 ? ((gains / (gains + losses)) * 100).toFixed(1) + '%' : '—');
+  setEl(
+    'sumWR',
+    (gains + losses) > 0
+      ? ((gains / (gains + losses)) * 100).toFixed(1) + '%'
+      : '—'
+  );
 
   // ── Pontos por ativo ──
-  const pontosWin = get.pontos_win();
-  const pontosWdo = get.pontos_wdo();
-  setEl('totalPontosWIN', pontosWin);
-  setEl('totalPontosWDO', pontosWdo);
+  setEl('totalPontosWIN', get.pontos_win());
+  setEl('totalPontosWDO', get.pontos_wdo());
 
   // ── Lucro Bruto ──
-  const lucroBruto = calc.lucroBruto();
-  setEl('totalLucroBruto', fmt.brl(lucroBruto));
+  setEl('totalLucroBruto', fmt.brl(calc.lucroBruto()));
 
   // ── Max e Média Ops por Dia ──
   if (ops.length > 0) {
     const opsPorDia = {};
+
     ops.forEach(op => {
       const dia = op.dia || 1;
       opsPorDia[dia] = (opsPorDia[dia] || 0) + 1;
     });
-    const maxOps = Math.max(...Object.values(opsPorDia));
+
+    const maxOps     = Math.max(...Object.values(opsPorDia));
     const diasComOps = Object.keys(opsPorDia).length;
-    const mediaOps = (diasComOps > 0 ? (ops.length / diasComOps) : 0).toFixed(1);
+    const mediaOps   = (ops.length / diasComOps).toFixed(1);
 
     setEl('maxOpsPorDia', maxOps);
     setEl('mediaOpsPorDia', mediaOps);
@@ -303,190 +312,107 @@ function renderDashboard() {
   setEl('dashPerdaDiariaAprovacao', fmt.brl(c.plano_perda_diaria_aprovacao));
 }
 
-// ─── CALENDÁRIO DE PERFORMANCE ────────────────────
-function renderCalendar() {
-  const container = document.getElementById('calendarContainer');
-  if (!container) return;
 
-  container.innerHTML = '';
+// ─── RENDER DIA ────────────────────────────────────
+function renderDia(dia, numEl, dateEl, linhaCalc, capitalFinal, meta, realizado, net, temDado) {
 
-  const c    = STATE.config;
-  const meta = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
-  const [y, m] = STATE.month.split('-').map(Number);
-  const diasDoMes = new Date(y, m, 0).getDate();
-  const firstDay  = new Date(y, m - 1, 1).getDay();
-  const hoje      = new Date();
+  if (!temDado) return;
 
-  // Cabeçalho dos dias da semana
-  const header = document.createElement('div');
-  header.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px';
-  ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].forEach(dia => {
-    const s = document.createElement('span');
-    s.textContent = dia;
-    s.style.cssText = 'text-align:center;font-size:10px;color:var(--muted);font-family:var(--mono);padding:4px 0;letter-spacing:0.06em;text-transform:uppercase';
-    header.appendChild(s);
-  });
-  container.appendChild(header);
+  const r      = parseFloat(realizado) || 0;
+  const netVal = net !== null ? net : r;
 
-  // Grid dos dias
-  const grid = document.createElement('div');
-  grid.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:6px';
+  // Cores
+  const colorNet = netVal > 0 ? '#22d987' : netVal < 0 ? '#ff4c6a' : '#8892a4';
 
-  // Células vazias antes do dia 1
-  for (let i = 0; i < firstDay; i++) {
-    const empty = document.createElement('div');
-    empty.style.cssText = 'min-height:80px';
-    grid.appendChild(empty);
-  }
+  const colorBg =
+    netVal > 0
+      ? 'linear-gradient(145deg,rgba(34,217,135,0.15) 0%,rgba(34,217,135,0.05) 100%)'
+      : netVal < 0
+      ? 'linear-gradient(145deg,rgba(255,76,106,0.15) 0%,rgba(255,76,106,0.05) 100%)'
+      : 'linear-gradient(145deg,rgba(136,146,164,0.1) 0%,rgba(136,146,164,0.04) 100%)';
 
-  // Pré-calcula os dados de capital por dia para reutilizar
-  const linhasCapital = calcCapitalPorDia();
+  const colorBorder =
+    netVal > 0
+      ? 'rgba(34,217,135,0.3)'
+      : netVal < 0
+      ? 'rgba(255,76,106,0.28)'
+      : 'rgba(136,146,164,0.2)';
 
-  for (let d = 1; d <= diasDoMes; d++) {
-    const dataLinha  = new Date(y, m - 1, d);
-    const isHoje     = dataLinha.toDateString() === hoje.toDateString();
-    const dadoDia    = STATE.projecao.find(p => p.dia === d) || {};
-    const realizado  = dadoDia.realizado;
-    const linhaCalc  = linhasCapital.find(l => l.d === d) || {};
+  dia.style.background  = colorBg;
+  dia.style.borderColor = colorBorder;
+  numEl.style.color     = colorNet;
+  dateEl.style.color =
+    netVal > 0
+      ? 'rgba(34,217,135,0.7)'
+      : netVal < 0
+      ? 'rgba(255,76,106,0.65)'
+      : '#8892a4';
 
-    // net = resultado já descontado de custo_op e imposto_retido (calculado em calcCapitalPorDia)
-    const net         = linhaCalc.net;          // null se não há dado
-    const capitalFinal = linhaCalc.capitalFinal; // null se não há dado
+  // ── Bruto ──
+  if (linhaCalc.custoOp || linhaCalc.impostoRet) {
+    const colorBruto = r > 0 ? '#22d987' : r < 0 ? '#ff4c6a' : '#8892a4';
 
-    const temDado = realizado !== null && realizado !== undefined && realizado !== '';
+    const brutoEl = document.createElement('span');
+    brutoEl.textContent = `Bruto: ${fmt.brl(r)}`;
+    brutoEl.style.cssText = `font-size:9px;color:${colorBruto};display:block;margin-top:3px;`;
+    dia.appendChild(brutoEl);
 
-    const dia = document.createElement('div');
-    dia.style.cssText = `
-      border-radius:10px;
-      min-height:80px;
-      padding:8px 7px;
-      display:flex;
-      flex-direction:column;
-      gap:3px;
-      position:relative;
-      cursor:default;
-      transition:border-color 0.15s, box-shadow 0.15s;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      font-family: var(--mono);
-    `;
-
-    // Data formatada: "02/Abr"
-    const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-    const dateLabel = `${String(d).padStart(2,'0')}/${meses[m-1]}`;
-
-    // Número do dia
-    const numEl = document.createElement('span');
-    numEl.textContent = d;
-    numEl.style.cssText = 'font-size:12px;font-weight:700;line-height:1;color:var(--text)';
-
-    // Data
-    const dateEl = document.createElement('span');
-    dateEl.textContent = dateLabel;
-    dateEl.style.cssText = 'font-size:9px;color:var(--muted);line-height:1;letter-spacing:0.04em';
-
-    dia.appendChild(numEl);
-    dia.appendChild(dateEl);
-    dia.setAttribute('data-cal', 'true');
-
-    if (isHoje) {
-      dia.style.border = '1.5px solid var(--neon2)';
-      numEl.style.color = 'var(--neon2)';
-      dateEl.style.color = 'var(--neon2)';
+    if (linhaCalc.custoOp) {
+      const custoEl = document.createElement('span');
+      custoEl.textContent = `Custo: -${fmt.brl(linhaCalc.custoOp)}`;
+      custoEl.style.cssText = 'font-size:9px;color:#fff;display:block;';
+      dia.appendChild(custoEl);
     }
 
-    if (temDado) {
-      const r      = parseFloat(realizado);
-      const netVal = net !== null ? net : r;
-
-      const colorNet  = netVal > 0 ? '#22d987' : netVal < 0 ? '#ff4c6a' : '#8892a4';
-      const colorBg   = netVal > 0
-        ? 'linear-gradient(145deg, rgba(34,217,135,0.15) 0%, rgba(34,217,135,0.05) 100%)'
-        : netVal < 0
-        ? 'linear-gradient(145deg, rgba(255,76,106,0.15) 0%, rgba(255,76,106,0.05) 100%)'
-        : 'linear-gradient(145deg, rgba(136,146,164,0.1) 0%, rgba(136,146,164,0.04) 100%)';
-      const colorBorder = netVal > 0
-        ? 'rgba(34,217,135,0.3)'
-        : netVal < 0
-        ? 'rgba(255,76,106,0.28)'
-        : 'rgba(136,146,164,0.2)';
-
-      dia.style.background  = colorBg;
-      dia.style.borderColor = colorBorder;
-      numEl.style.color     = colorNet;
-      dateEl.style.color    = netVal > 0 ? 'rgba(34,217,135,0.7)' : netVal < 0 ? 'rgba(255,76,106,0.65)' : '#8892a4';
-
-      // Ícone
-      const icon = document.createElement('span');
-      icon.textContent   = netVal > 0 ? '↗' : netVal < 0 ? '↘' : '→';
-      icon.style.cssText = `position:absolute;top:6px;right:7px;font-size:12px;color:${colorNet};opacity:0.85`;
-      dia.appendChild(icon);
-
-      // Bruto (só aparece quando há custo ou imposto para destacar a diferença)
-      if (linhaCalc.custoOp || linhaCalc.impostoRet) {
-        const brutoEl = document.createElement('span');
-        brutoEl.textContent   = `Bruto: ${fmt.brl(r)}`;
-        brutoEl.style.cssText = 'font-size:9px;color:#8892a4;line-height:1.3;display:block;margin-top:3px;';
-        dia.appendChild(brutoEl);
-
-        if (linhaCalc.custoOp) {
-          const custoEl = document.createElement('span');
-          custoEl.textContent   = `Custo: -${fmt.brl(linhaCalc.custoOp)}`;
-          custoEl.style.cssText = 'font-size:9px;color:#ff4c6a;line-height:1.3;display:block;';
-          dia.appendChild(custoEl);
-        }
-
-        if (linhaCalc.impostoRet) {
-          const impEl = document.createElement('span');
-          impEl.textContent   = `Imposto: -${fmt.brl(linhaCalc.impostoRet)}`;
-          impEl.style.cssText = 'font-size:9px;color:#ff4c6a;line-height:1.3;display:block;';
-          dia.appendChild(impEl);
-        }
-      }
-
-      // Líquido — destaque principal
-      const resEl = document.createElement('span');
-      resEl.textContent   = `${netVal >= 0 ? '+' : ''}${fmt.brl(netVal)}`;
-      resEl.style.cssText = `font-size:11px;font-weight:700;line-height:1.3;margin-top:3px;display:block;color:${colorNet};`;
-      dia.appendChild(resEl);
-
-      // Capital final
-      if (capitalFinal !== null) {
-        const capEl = document.createElement('span');
-        capEl.textContent   = fmt.brl(capitalFinal);
-        capEl.style.cssText = 'font-size:9.5px;color:#1ee8b7;font-weight:700;margin-top:1px;display:block;';
-        dia.appendChild(capEl);
-      }
-
-      // % da meta
-      if (meta > 0) {
-        const pctVal = ((r / meta) * 100).toFixed(0);
-        const metaEl = document.createElement('span');
-        metaEl.textContent   = `Meta: ${pctVal}%`;
-        metaEl.style.cssText = 'font-size:9px;color:#8892a4;line-height:1.3;display:block;margin-top:1px;';
-        dia.appendChild(metaEl);
-      }
+    if (linhaCalc.impostoRet) {
+      const impEl = document.createElement('span');
+      impEl.textContent = `Imposto: -${fmt.brl(linhaCalc.impostoRet)}`;
+      impEl.style.cssText = 'font-size:9px;color:#fff;display:block;';
+      dia.appendChild(impEl);
     }
-
-    grid.appendChild(dia);
   }
 
-  container.appendChild(grid);
+  // ── Líquido ──
+  const resEl = document.createElement('span');
+  resEl.textContent = `${netVal >= 0 ? '+' : ''}${fmt.brl(netVal)}`;
+  resEl.style.cssText = `font-size:11px;font-weight:700;color:${colorNet};display:block;margin-top:3px;`;
+  dia.appendChild(resEl);
+
+  // ── Capital ──
+  if (capitalFinal !== null) {
+    const capEl = document.createElement('span');
+    capEl.textContent = fmt.brl(capitalFinal);
+    capEl.style.cssText = 'font-size:9.5px;color:#fff;font-weight:700;display:block;';
+    dia.appendChild(capEl);
+  }
+
+  // ── Meta ──
+  if (meta > 0) {
+    const pctVal = ((r / meta) * 100).toFixed(0);
+
+    const metaEl = document.createElement('span');
+    metaEl.textContent = `Meta: ${pctVal}%`;
+    metaEl.style.cssText = 'font-size:9px;color:#fff;display:block;';
+    dia.appendChild(metaEl);
+  }
 }
 
+
+// ─── CAPITAL POR DIA ──────────────────────────────
 function calcCapitalPorDia() {
   const c     = STATE.config;
   const banca = parseFloat(c.banca_inicial)   ?? CONFIG_DEFAULTS.banca_inicial;
   const meta  = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
   const dias  = parseInt(c.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
 
-  const resultado  = [];
-  let capitalAtual = banca;   // acumula resultados reais
-  let ultimoCapReal = banca;  // último capital real conhecido
-  let ultimoDiaReal = 0;      // último dia que teve resultado
+  const resultado = [];
+  let capitalAtual = banca;
+  let ultimoCapReal = banca;
+  let ultimoDiaReal = 0;
 
   for (let d = 1; d <= dias; d++) {
-    const dadoDia    = STATE.projecao.find(p => p.dia === d) || {};
+    const dadoDia = STATE.projecao.find(p => p.dia === d) || {};
+
     const realizado  = dadoDia.realizado ?? '';
     const custoOp    = parseFloat(dadoDia.custo_op)       || 0;
     const impostoRet = parseFloat(dadoDia.imposto_retido) || 0;
@@ -500,360 +426,602 @@ function calcCapitalPorDia() {
     let retorno      = '—';
 
     if (temResultado) {
-      // Dia com resultado: capital projetado = capital com que iniciou o dia
       projecaoDia  = capitalAtual;
-      const r      = parseFloat(realizado) || 0;
+
+      const r = parseFloat(realizado) || 0;
       net          = r - custoOp - impostoRet;
       capitalFinal = capitalAtual + net;
-      pctMeta      = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
-      retorno      = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
+
+      pctMeta = meta > 0 ? ((r / meta) * 100).toFixed(0) + '%' : '—';
+      retorno = banca > 0 ? (((capitalFinal - banca) / banca) * 100).toFixed(2) + '%' : '—';
+
       capitalAtual  = capitalFinal;
       ultimoCapReal = capitalFinal;
       ultimoDiaReal = d;
+
     } else {
-      // Dia futuro: projeta a partir do último capital real + meta × dias à frente
-      // → mostra quando volta ao positivo seguindo a meta
       const passos = d - ultimoDiaReal;
       projecaoDia  = ultimoCapReal + meta * passos;
     }
 
-    resultado.push({ d, projecaoDia, capitalFinal, net, pctMeta, retorno, realizado, custoOp, impostoRet });
+    resultado.push({
+      d,
+      projecaoDia,
+      capitalFinal,
+      net,
+      pctMeta,
+      retorno,
+      realizado,
+      custoOp,
+      impostoRet
+    });
   }
 
   return resultado;
 }
 
-// ─── PROJEÇÃO DIÁRIA ──────────────────────────────
-function renderProjecaoTable() {
-  const focusedDia   = document.activeElement?.dataset?.dia;
-  const focusedClass = document.activeElement?.classList?.contains('proj-custo')    ? 'proj-custo'
-                     : document.activeElement?.classList?.contains('proj-imposto')  ? 'proj-imposto'
-                     : null;
+function renderCalendar() {
+  const container = document.getElementById('calendarContainer');
+  if (!container) return;
+  container.innerHTML = '';
 
   const c    = STATE.config;
   const meta = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
-
-  const tbody = document.getElementById('projecaoBody');
-  tbody.innerHTML = '';
-
-  const hoje   = new Date();
+  const dias = parseInt(c.dias_uteis)        || CONFIG_DEFAULTS.dias_uteis;
   const [y, m] = STATE.month.split('-').map(Number);
-  const linhas = calcCapitalPorDia();
+  const diasDoMes = new Date(y, m, 0).getDate();
+  const firstDay  = new Date(y, m - 1, 1).getDay();
+  const hoje      = new Date();
 
-  linhas.forEach(({ d, projecaoDia, capitalFinal, net, pctMeta, retorno, realizado }) => {
-    const dataLinha = new Date(y, m - 1, d);
-    const isHoje    = dataLinha.toDateString() === hoje.toDateString();
-    const isPassado = dataLinha < hoje && !isHoje;
-
-    const rowClass  = isHoje ? 'row-hoje' : isPassado ? 'row-passado' : 'row-futuro';
-
-    const dadoDia    = STATE.projecao.find(p => p.dia === d) || {};
-    const custoOp    = dadoDia.custo_op       ?? 0;
-    const impostoRet = dadoDia.imposto_retido ?? 0;
-
-    const realClass = (realizado !== null && realizado !== '')
-      ? (parseFloat(realizado) >= 0 ? 'val-positive' : 'val-negative') : '';
-
-    let resultadoDia      = '—';
-    let resultadoDiaClass = '';
-    if (net !== null) {
-      resultadoDia      = fmt.brl(net);
-      resultadoDiaClass = net >= 0 ? 'val-positive' : 'val-negative';
-    }
-
-    const capitalFinalCell = capitalFinal !== null ? fmt.brl(capitalFinal) : '—';
-
-    const tr = document.createElement('tr');
-    tr.className   = rowClass;
-    tr.dataset.dia = d;
-
-    tr.innerHTML = `
-      <td style="color:var(--neon);font-weight:700">${d}${isHoje ? ' 🔵' : ''}</td>
-      <td style="color:var(--neon3)">${fmt.brl(meta)}</td>
-      <td>${fmt.brl(projecaoDia)}</td>
-      <td class="${realClass}" style="font-weight:600">
-        ${realizado !== null && realizado !== '' ? fmt.brl(parseFloat(realizado)) : '—'}
-      </td>
-      <td>
-        <input class="tbl-input proj-custo" type="number" data-dia="${d}"
-               value="${custoOp !== null && custoOp !== '' ? custoOp : ''}"
-               placeholder="0" step="0.01" style="color:#ff4c6a">
-      </td>
-      <td>
-        <input class="tbl-input proj-imposto" type="number" data-dia="${d}"
-               value="${impostoRet !== null && impostoRet !== '' ? impostoRet : ''}"
-               placeholder="0" step="0.01" style="color:#ff4c6a">
-      </td>
-      <td class="${resultadoDiaClass}" style="font-weight:600">${resultadoDia}</td>
-      <td>${pctMeta}</td>
-      <td style="color:var(--neon2);font-weight:600">${capitalFinalCell}</td>
-      <td>${retorno}</td>
-    `;
-
-    tbody.appendChild(tr);
-
-    if (focusedDia && focusedClass) {
-      const el = tbody.querySelector(`.${focusedClass}[data-dia="${focusedDia}"]`);
-      if (el) {
-        el.focus();
-        const len = el.value?.length ?? 0;
-        if (typeof el.setSelectionRange === 'function') {
-          el.setSelectionRange(len, len);
-        }
-      }
-    }
-  });
-}
-
-function updateProjecaoComputedCells() {
-  const linhas = calcCapitalPorDia();
-  const rows   = document.querySelectorAll('#projecaoBody tr');
-
-  rows.forEach(tr => {
-    const d    = parseInt(tr.dataset.dia);
-    const info = linhas.find(l => l.d === d);
-    if (!info) return;
-
-    const { projecaoDia, capitalFinal, net, pctMeta, retorno, realizado } = info;
-    const cells = tr.querySelectorAll('td');
-
-    // col 2 — Banca Proj
-    if (cells[2]) cells[2].textContent = fmt.brl(projecaoDia);
-
-    // Cor da td que envolve o input de realizado
-    const realTd = tr.querySelector('.proj-realizado')?.closest('td');
-    if (realTd && realizado !== '' && realizado !== null) {
-      realTd.className = parseFloat(realizado) >= 0 ? 'val-positive' : 'val-negative';
-    }
-
-    // col 6 — Resultado Dia
-    if (cells[6]) {
-      if (net !== null) {
-        cells[6].textContent = fmt.brl(net);
-        cells[6].className   = net >= 0 ? 'val-positive' : 'val-negative';
-        cells[6].style.fontWeight = '600';
-      } else {
-        cells[6].textContent = '—';
-        cells[6].className   = '';
-      }
-    }
-
-    // col 7 — % Meta
-    if (cells[7]) cells[7].textContent = pctMeta;
-
-    // col 8 — Capital Final
-    if (cells[8]) {
-      if (realizado !== '' && realizado !== null) {
-        cells[8].innerHTML = fmt.brl(capitalFinal);
-      } else if (d > 1) {
-        cells[8].innerHTML = `<span style="opacity:0.45">${fmt.brl(capitalFinal)}</span>`;
-      } else {
-        cells[8].textContent = '—';
-      }
-    }
-
-    // col 9 — Retorno
-    if (cells[9]) cells[9].textContent = retorno;
-  });
-}
-
-
-// ─── OPERAÇÕES (tabela resumo por dia) ────────────
-function renderOpsTable() {
-  const tbody = document.getElementById('opsBody');
-  tbody.innerHTML = '';
-
-  const dias = parseInt(STATE.config.dias_uteis) || CONFIG_DEFAULTS.dias_uteis;
-  const tots = { indGain:0, indLoss:0, indZero:0, dolGain:0, dolLoss:0, dolZero:0, all:0 };
-
+  const calDayToWorkDay = {};
   for (let d = 1; d <= dias; d++) {
-    const dayOps = STATE.operacoes.filter(o => o.dia === d);
-    if (!dayOps.length) continue;
-
-    const indGain  = dayOps.filter(o => o.ativo === 'WIN' && o.status === 'GAIN').length;
-    const indLoss  = dayOps.filter(o => o.ativo === 'WIN' && o.status === 'LOSS').length;
-    const indZero  = dayOps.filter(o => o.ativo === 'WIN' && o.status === 'ZERADA').length;
-    const dolGain  = dayOps.filter(o => o.ativo === 'WDO' && o.status === 'GAIN').length;
-    const dolLoss  = dayOps.filter(o => o.ativo === 'WDO' && o.status === 'LOSS').length;
-    const dolZero  = dayOps.filter(o => o.ativo === 'WDO' && o.status === 'ZERADA').length;
-    const totalDia = dayOps.length;
-
-    tots.indGain += indGain; tots.indLoss += indLoss; tots.indZero += indZero;
-    tots.dolGain += dolGain; tots.dolLoss += dolLoss; tots.dolZero += dolZero;
-    tots.all     += totalDia;
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="color:var(--neon);font-weight:700">Dia ${d}</td>
-      <td class="val-positive">${indGain}</td>
-      <td class="val-negative">${indLoss}</td>
-      <td class="val-neutral">${indZero}</td>
-      <td class="val-positive">${dolGain}</td>
-      <td class="val-negative">${dolLoss}</td>
-      <td class="val-neutral">${dolZero}</td>
-      <td style="color:var(--neon2)">${totalDia}</td>
-    `;
-    tbody.appendChild(tr);
-  }
-
-  const ids  = ['totIndGain','totIndLoss','totIndZero','totDolGain','totDolLoss','totDolZero','totAllOps'];
-  const vals = [tots.indGain, tots.indLoss, tots.indZero, tots.dolGain, tots.dolLoss, tots.dolZero, tots.all];
-  ids.forEach((id, i) => { const el = document.getElementById(id); if (el) el.textContent = vals[i]; });
-
-  const gains  = STATE.operacoes.filter(o => o.status === 'GAIN').length;
-  const losses = STATE.operacoes.filter(o => o.status === 'LOSS').length;
-  const elG = document.getElementById('perf_gain');  if (elG) elG.textContent = gains;
-  const elL = document.getElementById('perf_loss');  if (elL) elL.textContent = losses;
-  const elW = document.getElementById('perf_wr');
-  if (elW) elW.textContent = (gains + losses) > 0 ? ((gains / (gains + losses)) * 100).toFixed(1) + '%' : '—';
-}
-
-// ─── OPERAÇÕES DETALHADAS ─────────────────────────
-function renderOpsDetalhada() {
-  const tbody = document.getElementById('opsDetalhadaBody');
-  tbody.innerHTML = '';
-  STATE.operacoes.forEach((op, idx) => tbody.appendChild(buildOpsRow(op, idx)));
-}
-
-function buildOpsRow(op, idx) {
-  const tr = document.createElement('tr');
-  tr.dataset.idx = idx;
-
-  const [oy, om] = STATE.month.split('-').map(Number);
-  const diaNum = op.dia || 1;
-
-  const resultClass = (parseFloat(op.resultado) || 0) >= 0 ? 'val-positive' : 'val-negative';
-
-  tr.innerHTML = `
-    <td><input class="tbl-input" type="number" name="dia" value="${diaNum}" min="1" max="31" style="width:50px"></td>
-    <td>
-      <input class="tbl-input" type="date" name="data_cal"
-             value="${STATE.month}-${String(diaNum).padStart(2,'0')}"
-             style="width:130px;color:var(--neon);font-family:var(--mono);font-size:11px">
-    </td>
-    <td>
-      <select class="tbl-select" name="tipo">
-        <option value="COMPRA" ${op.tipo==='COMPRA'?'selected':''}>COMPRA</option>
-        <option value="VENDA"  ${op.tipo==='VENDA' ?'selected':''}>VENDA</option>
-      </select>
-    </td>
-    <td>
-      <select class="tbl-select" name="ativo">
-        <option value="WIN" ${op.ativo==='WIN'?'selected':''}>WIN</option>
-        <option value="WDO" ${op.ativo==='WDO'?'selected':''}>WDO</option>
-        <option value="BIT" ${op.ativo==='BIT'?'selected':''}>BIT</option>
-      </select>
-    </td>
-    <td><input class="tbl-input" type="number" name="entrada"     value="${op.entrada||''}"       step="0.01" placeholder="0.00"></td>
-    <td><input class="tbl-input" type="number" name="saida"       value="${op.saida||''}"         step="0.01" placeholder="0.00"></td>
-    <td><input class="tbl-input" type="number" name="contratos"   value="${op.contratos||1}"      step="1"    style="width:55px"></td>
-    <td><input class="tbl-input" type="number" name="valor_ponto" value="${op.valor_ponto||0.20}" step="0.01" style="width:60px"></td>
-    <td class="${(parseFloat(op.pontos)||0)>=0?'val-positive':'val-negative'}">
-      <input class="tbl-input" type="number" name="pontos"    value="${op.pontos||''}"    step="0.01" placeholder="0">
-    </td>
-    <td class="${resultClass}">
-      <input class="tbl-input" type="number" name="resultado" value="${op.resultado||''}" step="0.01" placeholder="0.00">
-    </td>
-    <td>
-      <span class="status-badge ${op.status === 'GAIN' ? 'gain' : op.status === 'LOSS' ? 'loss' : 'zerada'}">${op.status || 'ZERADA'}</span>
-    </td>
-    <td>
-      <button type="button" class="btn-delete ops-del-btn" data-idx="${idx}">✕</button>
-    </td>
-  `;
-
-  const autoCalcTriggers = tr.querySelectorAll(
-      'input[name="entrada"], input[name="saida"], input[name="contratos"], input[name="valor_ponto"], select[name="ativo"], select[name="tipo"]'
-  );
-  autoCalcTriggers.forEach(inp => inp.addEventListener('change', () => autoCalcRow(tr)));
-  tr.querySelector('.ops-del-btn').addEventListener('click', () => deleteOpsRow(idx));
-
-  return tr;
-}
-
-// ─── AUTO-CÁLCULO DE LINHA DE OPERAÇÃO ─────────────
-function autoCalcRow(tr) {
-  const g = name => tr.querySelector(`[name="${name}"]`)?.value;
-
-  const entrada   = parseFloat(g('entrada'))   || 0;
-  const saida     = parseFloat(g('saida'))     || 0;
-  const contratos = parseFloat(g('contratos')) || 1;
-  const ativo     = g('ativo');
-  const tipo      = g('tipo');  // FIX: lê o tipo (COMPRA/VENDA) para cálculo correto
-
-  const valorPontoMap = { WIN: 0.20, WDO: 10.00, BIT: 0.01 };
-  const vpEl = tr.querySelector('[name="valor_ponto"]');
-  if (!vpEl.value || vpEl.dataset.auto !== 'false') {
-    vpEl.value = valorPontoMap[ativo] || 0.20;
-    vpEl.dataset.auto = 'true';
-  }
-  const vp = parseFloat(vpEl.value) || 0;
-  const diffBruto = saida - entrada;
-  const diff      = tipo === 'VENDA' ? -diffBruto : diffBruto;
-  const pontos    = ativo === 'WDO' ? diff * 1000 : diff;
-  const resultado = pontos * contratos * vp;
-
-  const pontosEl    = tr.querySelector('[name="pontos"]');
-  const resultadoEl = tr.querySelector('[name="resultado"]');
-
-  if (entrada && saida) {
-    pontosEl.value    = pontos.toFixed(2);
-    resultadoEl.value = resultado.toFixed(2);
-    resultadoEl.closest('td').className = resultado >= 0 ? 'val-positive' : 'val-negative';
-
-    // FIX: atualiza td de pontos também
-    pontosEl.closest('td').className = pontos >= 0 ? 'val-positive' : 'val-negative';
-
-    const newStatus = resultado > 0 ? 'GAIN' : resultado < 0 ? 'LOSS' : 'ZERADA';
-    const statusSpan = tr.querySelector('.status-badge');
-    if (statusSpan) {
-      statusSpan.textContent = newStatus;
-      statusSpan.className = 'status-badge ' + (newStatus === 'GAIN' ? 'gain' : newStatus === 'LOSS' ? 'loss' : 'zerada');
+    const opDoDia = STATE.operacoes.find(op => op.dia === d);
+    if (opDoDia?.data_cal) {
+      const diaDoMes = parseInt(opDoDia.data_cal.split('-')[2], 10);
+      calDayToWorkDay[diaDoMes] = d;
     }
   }
-}
 
-function deleteOpsRow(idx) {
-  STATE.operacoes.splice(idx, 1);
-  renderOpsDetalhada();
-  renderOpsTable();
-  // FIX: atualiza dashboard e charts ao deletar operação
-  renderDashboard();
-  renderCharts();
-  atualizarCampos();
-}
+  const linhasCapital = calcCapitalPorDia();
 
-function addNewOpsRow() {
-  STATE.operacoes.push({
-    dia: 1, tipo: 'COMPRA', ativo: 'WIN',
-    entrada: '', saida: '', contratos: 1,
-    valor_ponto: 0.20, pontos: '', resultado: '', status: 'GAIN',
+  // ── Header ──
+  const header = document.createElement('div');
+  header.style.cssText = `
+    display:grid;grid-template-columns:repeat(7,1fr);
+    gap:6px;margin-bottom:10px;
+  `;
+  ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].forEach((label, i) => {
+    const s = document.createElement('span');
+    s.textContent = label;
+    s.style.cssText = `
+      text-align:center;
+      font-size:9px;
+      font-family:var(--font-mono);
+      font-weight:600;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+      padding:6px 0;
+      color:${i === 0 || i === 6 ? 'var(--t-dim)' : 'var(--t-muted)'};
+    `;
+    header.appendChild(s);
   });
-  renderOpsDetalhada();
-  document.getElementById('opsDetalhadaBody')?.lastElementChild
-    ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  container.appendChild(header);
+
+  // ── Grid ──
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:6px';
+
+  for (let i = 0; i < firstDay; i++) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'min-height:80px';
+    grid.appendChild(empty);
+  }
+
+  for (let calDay = 1; calDay <= diasDoMes; calDay++) {
+    const dataLinha  = new Date(y, m - 1, calDay);
+    const isHoje     = dataLinha.toDateString() === hoje.toDateString();
+    const diaSemana  = dataLinha.getDay();
+    const isFimSemana = diaSemana === 0 || diaSemana === 6;
+
+    const workDay   = calDayToWorkDay[calDay];
+    const dadoDia   = workDay ? (STATE.projecao.find(p => p.dia === workDay) || {}) : {};
+    const linhaCalc = workDay ? (linhasCapital.find(l => l.d === workDay) || {}) : {};
+
+    const realizado = dadoDia.realizado;
+    const net       = linhaCalc.net ?? null;
+    const temDado   = realizado !== null && realizado !== undefined && realizado !== '';
+
+    // ── Esquema de cor ──
+    let bgColor, borderColor, numColor, accentBar;
+
+    if (temDado && net !== null) {
+      if (net > 0) {
+        bgColor     = 'rgba(0,200,122,0.18)';
+        borderColor = 'rgba(0,200,122,0.35)';
+        numColor    = 'var(--c-green)';
+        accentBar   = 'var(--c-green)';
+      } else if (net < 0) {
+        bgColor     = 'rgba(240,77,94,0.18)';
+        borderColor = 'rgba(240,77,94,0.35)';
+        numColor    = 'var(--c-red)';
+        accentBar   = 'var(--c-red)';
+      } else {
+        bgColor     = 'var(--c-bg3)';
+        borderColor = 'var(--b-medium)';
+        numColor    = 'var(--t-muted)';
+        accentBar   = 'var(--t-muted)';
+      }
+    } else {
+      bgColor     = isFimSemana ? 'transparent' : 'var(--c-bg2)';
+      borderColor = isFimSemana ? 'var(--b-soft)' : 'var(--b-soft)';
+      numColor    = isFimSemana ? 'var(--t-dim)' : 'var(--t-muted)';
+      accentBar   = null;
+    }
+
+    if (isHoje) borderColor = 'var(--c-cyan)';
+
+    // ── Célula ──
+    const cell = document.createElement('div');
+    cell.style.cssText = `
+      min-height:80px;
+      padding:0;
+      display:flex;
+      flex-direction:column;
+      position:relative;
+      border-radius:var(--r-md);
+      border:1px solid ${borderColor};
+      background:${bgColor};
+      font-family:var(--font-mono);
+      overflow:hidden;
+      transition:border-color .15s, transform .15s;
+      opacity:${isFimSemana && !temDado ? '.35' : '1'};
+    `;
+
+    // ── Barra de acento no topo ──
+    if (accentBar) {
+      const bar = document.createElement('div');
+      bar.style.cssText = `
+        height:2px;
+        width:100%;
+        background:${accentBar};
+        flex-shrink:0;
+        opacity:.7;
+      `;
+      cell.appendChild(bar);
+    }
+
+    // ── Inner padding wrapper ──
+    const inner = document.createElement('div');
+    inner.style.cssText = `
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      padding:7px 9px 8px;
+      gap:5px;
+    `;
+
+    // ── Número do dia ──
+    const numEl = document.createElement('span');
+    numEl.textContent = calDay;
+    numEl.style.cssText = `
+      font-size:12px;
+      font-weight:700;
+      color:${isHoje ? 'var(--c-cyan)' : numColor};
+      line-height:1;
+    `;
+    inner.appendChild(numEl);
+
+    // ── Badge "hoje" ──
+    if (isHoje) {
+      const todayBadge = document.createElement('span');
+      todayBadge.textContent = 'HOJE';
+      todayBadge.style.cssText = `
+        font-size:7px;
+        font-weight:700;
+        letter-spacing:.14em;
+        color:var(--c-cyan);
+        opacity:.7;
+        line-height:1;
+      `;
+      inner.appendChild(todayBadge);
+    }
+
+    if (temDado && net !== null) {
+      const netVal = net;
+      const sign   = netVal >= 0 ? '+' : '';
+      const r      = parseFloat(realizado);
+
+      // ── Spacer ──
+      const spacer = document.createElement('div');
+      spacer.style.cssText = 'flex:1';
+      inner.appendChild(spacer);
+
+      // ── Resultado líquido ──
+      const netEl = document.createElement('span');
+      netEl.textContent = `${sign}${fmt.brl(netVal)}`;
+      netEl.style.cssText = `
+        font-size:14px;
+        font-weight:700;
+        color:${numColor};
+        line-height:1.2;
+        letter-spacing:-.2px;
+      `;
+      inner.appendChild(netEl);
+
+      // ── % da meta ──
+      if (meta > 0) {
+        const pct    = ((r / meta) * 100).toFixed(0);
+        const metaEl = document.createElement('span');
+        metaEl.textContent = `${pct}% meta`;
+        metaEl.style.cssText = `
+          font-size:10px;
+          font-weight:500;
+          color:${numColor};
+          opacity:.6;
+          line-height:1;
+          letter-spacing:.04em;
+        `;
+        inner.appendChild(metaEl);
+      }
+    }
+
+    cell.appendChild(inner);
+    grid.appendChild(cell);
+  }
+
+  container.appendChild(grid);
 }
 
-function collectOpsFromTable() {
-  return Array.from(document.querySelectorAll('#opsDetalhadaBody tr')).map(tr => {
+      // ─── PROJEÇÃO DIÁRIA ──────────────────────────────
+      function renderProjecaoTable() {
+        const focusedDia   = document.activeElement?.dataset?.dia;
+        const focusedClass = document.activeElement?.classList?.contains('proj-custo')    ? 'proj-custo'
+                          : document.activeElement?.classList?.contains('proj-imposto')  ? 'proj-imposto'
+                          : null;
+
+        const c    = STATE.config;
+        const meta = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
+
+        const tbody = document.getElementById('projecaoBody');
+        tbody.innerHTML = '';
+
+        const hoje   = new Date();
+        const [y, m] = STATE.month.split('-').map(Number);
+        const linhas = calcCapitalPorDia();
+
+        linhas.forEach(({ d, projecaoDia, capitalFinal, net, pctMeta, retorno, realizado }) => {
+          const dataLinha = new Date(y, m - 1, d);
+          const isHoje    = dataLinha.toDateString() === hoje.toDateString();
+          const isPassado = dataLinha < hoje && !isHoje;
+
+          const rowClass  = isHoje ? 'row-hoje' : isPassado ? 'row-passado' : 'row-futuro';
+
+          const dadoDia    = STATE.projecao.find(p => p.dia === d) || {};
+          const custoOp    = dadoDia.custo_op       ?? 0;
+          const impostoRet = dadoDia.imposto_retido ?? 0;
+
+          const realClass = (realizado !== null && realizado !== '')
+            ? (parseFloat(realizado) >= 0 ? 'val-positive' : 'val-negative') : '';
+
+          let resultadoDia      = '—';
+          let resultadoDiaClass = '';
+          if (net !== null) {
+            resultadoDia      = fmt.brl(net);
+            resultadoDiaClass = net >= 0 ? 'val-positive' : 'val-negative';
+          }
+
+          const capitalFinalCell = capitalFinal !== null ? fmt.brl(capitalFinal) : '—';
+
+          // ── DATA: busca data_cal na primeira operação do dia ──
+          const opDoDia = STATE.operacoes.find(op => op.dia === d);
+          const dataCal = opDoDia?.data_cal || '';
+          const dataFmt = dataCal ? dataCal.split('-').reverse().join('/') : '—';
+
+          const tr = document.createElement('tr');
+          tr.className   = rowClass;
+          tr.dataset.dia = d;
+
+          tr.innerHTML = `
+          <td style="color:#ffffff;font-weight:700">
+            ${d}${isHoje ? ' 🔵' : ''}
+          </td>
+
+          <td style="color:#ffffff;font-size:11px;font-family:var(--mono)">
+            ${dataFmt}
+          </td>
+
+          <td style="color:#f7c948">
+            ${fmt.brl(meta)}
+          </td>
+          <td style="color:var(--text)">${fmt.brl(projecaoDia)}</td>
+          <td class="${realClass}" style="font-weight:600">
+            ${realizado !== null && realizado !== '' ? fmt.brl(parseFloat(realizado)) : '—'}
+          </td>
+          <td>
+            <input class="tbl-input proj-custo" type="number" data-dia="${d}"
+                  value="${custoOp !== null && custoOp !== '' ? custoOp : ''}"
+                  placeholder="0" step="0.01" style="color:#ff4c6a">
+          </td>
+          <td>
+            <input class="tbl-input proj-imposto" type="number" data-dia="${d}"
+                  value="${impostoRet !== null && impostoRet !== '' ? impostoRet : ''}"
+                  placeholder="0" step="0.01" style="color:#ff4c6a">
+          </td>
+          <td class="${resultadoDiaClass}" style="font-weight:600">${resultadoDia}</td>
+          <td style="color:var(--text)">${pctMeta}</td>
+          <td style="color:var(--neon2);font-weight:600">${capitalFinalCell}</td>
+          <td style="color:var(--text)">${retorno}</td>
+          `;
+
+          tbody.appendChild(tr);
+
+          if (focusedDia && focusedClass) {
+            const el = tbody.querySelector(`.${focusedClass}[data-dia="${focusedDia}"]`);
+            if (el) {
+              el.focus();
+              const len = el.value?.length ?? 0;
+              if (typeof el.setSelectionRange === 'function') {
+                el.setSelectionRange(len, len);
+              }
+            }
+          }
+        });
+      }
+
+        function updateProjecaoComputedCells() {
+          const linhas = calcCapitalPorDia();
+          const c      = STATE.config;
+          const meta   = parseFloat(c.objetivo_diario) || CONFIG_DEFAULTS.objetivo_diario;
+          const rows   = document.querySelectorAll('#projecaoBody tr');
+
+          rows.forEach(tr => {
+            const d    = parseInt(tr.dataset.dia);
+            const info = linhas.find(l => l.d === d);
+            if (!info) return;
+
+            const { projecaoDia, capitalFinal, net, pctMeta, retorno, realizado } = info;
+            const cells = tr.querySelectorAll('td');
+
+            // col 3 — Banca Proj
+            if (cells[3]) cells[3].textContent = fmt.brl(projecaoDia);
+
+            // col 7 — Resultado Dia
+            if (cells[7]) {
+              if (net !== null) {
+                cells[7].textContent      = fmt.brl(net);
+                cells[7].className        = net >= 0 ? 'val-positive' : 'val-negative';
+                cells[7].style.fontWeight = '600';
+              } else {
+                cells[7].textContent = '—';
+                cells[7].className   = '';
+              }
+            }
+
+            // col 8 — % Meta
+            if (cells[8]) cells[8].textContent = pctMeta;
+
+            // col 9 — Capital Final
+            if (cells[9]) {
+              if (realizado !== '' && realizado !== null) {
+                cells[9].innerHTML = fmt.brl(capitalFinal);
+              } else if (d > 1) {
+                cells[9].innerHTML = `<span style="opacity:0.45">${fmt.brl(capitalFinal)}</span>`;
+              } else {
+                cells[9].textContent = '—';
+              }
+            }
+
+            // col 10 — Retorno
+            if (cells[10]) cells[10].textContent = retorno;
+          });
+        }
+
+
+  // ─── OPERAÇÕES (tabela resumo por dia) ────────────
+  function renderOpsTable() {
+    const tbody = document.getElementById('opsBody');
+    tbody.innerHTML = '';
+
+    const dias = parseInt(STATE.config.dias_uteis) || CONFIG_DEFAULTS.dias_uteis;
+    const tots = { indGain:0, indLoss:0, indZero:0, dolGain:0, dolLoss:0, dolZero:0, all:0 };
+
+    for (let d = 1; d <= dias; d++) {
+      const dayOps = STATE.operacoes.filter(o => o.dia === d);
+      if (!dayOps.length) continue;
+
+      const indGain  = dayOps.filter(o => o.ativo === 'WIN' && o.status === 'GAIN').length;
+      const indLoss  = dayOps.filter(o => o.ativo === 'WIN' && o.status === 'LOSS').length;
+      const indZero  = dayOps.filter(o => o.ativo === 'WIN' && o.status === 'ZERADA').length;
+      const dolGain  = dayOps.filter(o => o.ativo === 'WDO' && o.status === 'GAIN').length;
+      const dolLoss  = dayOps.filter(o => o.ativo === 'WDO' && o.status === 'LOSS').length;
+      const dolZero  = dayOps.filter(o => o.ativo === 'WDO' && o.status === 'ZERADA').length;
+      const totalDia = dayOps.length;
+
+      tots.indGain += indGain; tots.indLoss += indLoss; tots.indZero += indZero;
+      tots.dolGain += dolGain; tots.dolLoss += dolLoss; tots.dolZero += dolZero;
+      tots.all     += totalDia;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="color:var(--neon);font-weight:700">Dia ${d}</td>
+        <td class="val-positive">${indGain}</td>
+        <td class="val-negative">${indLoss}</td>
+        <td class="val-neutral">${indZero}</td>
+        <td class="val-positive">${dolGain}</td>
+        <td class="val-negative">${dolLoss}</td>
+        <td class="val-neutral">${dolZero}</td>
+        <td style="color:var(--neon2)">${totalDia}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    const ids  = ['totIndGain','totIndLoss','totIndZero','totDolGain','totDolLoss','totDolZero','totAllOps'];
+    const vals = [tots.indGain, tots.indLoss, tots.indZero, tots.dolGain, tots.dolLoss, tots.dolZero, tots.all];
+    ids.forEach((id, i) => { const el = document.getElementById(id); if (el) el.textContent = vals[i]; });
+
+    const gains  = STATE.operacoes.filter(o => o.status === 'GAIN').length;
+    const losses = STATE.operacoes.filter(o => o.status === 'LOSS').length;
+    const elG = document.getElementById('perf_gain');  if (elG) elG.textContent = gains;
+    const elL = document.getElementById('perf_loss');  if (elL) elL.textContent = losses;
+    const elW = document.getElementById('perf_wr');
+    if (elW) elW.textContent = (gains + losses) > 0 ? ((gains / (gains + losses)) * 100).toFixed(1) + '%' : '—';
+  }
+
+  // ─── OPERAÇÕES DETALHADAS ─────────────────────────
+  function renderOpsDetalhada() {
+    const tbody = document.getElementById('opsDetalhadaBody');
+    tbody.innerHTML = '';
+    STATE.operacoes.forEach((op, idx) => tbody.appendChild(buildOpsRow(op, idx)));
+  }
+
+  function buildOpsRow(op, idx) {
+    const tr = document.createElement('tr');
+    tr.dataset.idx = idx;
+
+    const diaNum = op.dia || 1;
+
+    // ─── FIX: usa data_cal salva se existir; só reconstrói como fallback ───
+    const dataCal = op.data_cal || `${STATE.month}-${String(diaNum).padStart(2,'0')}`;
+
+    const resultClass = (parseFloat(op.resultado) || 0) >= 0 ? 'val-positive' : 'val-negative';
+
+    tr.innerHTML = `
+      <td><input class="tbl-input" type="number" name="dia" value="${diaNum}" min="1" max="31" style="width:50px"></td>
+      <td>
+        <input class="tbl-input" type="date" name="data_cal"
+              value="${dataCal}"
+              style="width:130px;color:var(--neon);font-family:var(--mono);font-size:11px">
+      </td>
+      <td>
+        <select class="tbl-select" name="tipo">
+          <option value="COMPRA" ${op.tipo==='COMPRA'?'selected':''}>COMPRA</option>
+          <option value="VENDA"  ${op.tipo==='VENDA' ?'selected':''}>VENDA</option>
+        </select>
+      </td>
+      <td>
+        <select class="tbl-select" name="ativo">
+          <option value="WIN" ${op.ativo==='WIN'?'selected':''}>WIN</option>
+          <option value="WDO" ${op.ativo==='WDO'?'selected':''}>WDO</option>
+          <option value="BIT" ${op.ativo==='BIT'?'selected':''}>BIT</option>
+        </select>
+      </td>
+      <td><input class="tbl-input" type="number" name="entrada"     value="${op.entrada||''}"       step="0.01" placeholder="0.00"></td>
+      <td><input class="tbl-input" type="number" name="saida"       value="${op.saida||''}"         step="0.01" placeholder="0.00"></td>
+      <td><input class="tbl-input" type="number" name="contratos"   value="${op.contratos||1}"      step="1"    style="width:55px"></td>
+      <td><input class="tbl-input" type="number" name="valor_ponto" value="${op.valor_ponto||0.20}" step="0.01" style="width:60px"></td>
+      <td class="${(parseFloat(op.pontos)||0)>=0?'val-positive':'val-negative'}">
+        <input class="tbl-input" type="number" name="pontos"    value="${op.pontos||''}"    step="0.01" placeholder="0">
+      </td>
+      <td class="${resultClass}">
+        <input class="tbl-input" type="number" name="resultado" value="${op.resultado||''}" step="0.01" placeholder="0.00">
+      </td>
+      <td>
+        <span class="status-badge ${op.status === 'GAIN' ? 'gain' : op.status === 'LOSS' ? 'loss' : 'zerada'}">${op.status || 'ZERADA'}</span>
+      </td>
+      <td>
+        <button type="button" class="btn-delete ops-del-btn" data-idx="${idx}">✕</button>
+      </td>
+    `;
+
+    const autoCalcTriggers = tr.querySelectorAll(
+        'input[name="entrada"], input[name="saida"], input[name="contratos"], input[name="valor_ponto"], select[name="ativo"], select[name="tipo"]'
+    );
+    autoCalcTriggers.forEach(inp => inp.addEventListener('change', () => autoCalcRow(tr)));
+    tr.querySelector('.ops-del-btn').addEventListener('click', () => deleteOpsRow(idx));
+
+    return tr;
+  }
+
+  // ─── AUTO-CÁLCULO DE LINHA DE OPERAÇÃO ─────────────
+  function autoCalcRow(tr) {
     const g = name => tr.querySelector(`[name="${name}"]`)?.value;
-    // FIX: contratos mínimo 1 (nunca 0), mas preserva o valor digitado se >= 1
-    const contratosRaw = parseInt(g('contratos'));
-    return {
-      dia:         parseInt(g('dia'))           || 1,
-      tipo:        g('tipo')                    || 'COMPRA',
-      ativo:       g('ativo')                   || 'WIN',
-      entrada:     parseFloat(g('entrada'))     || 0,
-      saida:       parseFloat(g('saida'))       || 0,
-      contratos:   isNaN(contratosRaw) || contratosRaw < 1 ? 1 : contratosRaw,
-      valor_ponto: parseFloat(g('valor_ponto')) || 0,
-      pontos:      parseFloat(g('pontos'))      || 0,
-      resultado:   parseFloat(g('resultado'))   || 0,
-      status: tr.querySelector('.status-badge')?.textContent.trim() || 'GAIN',
-      month:       STATE.month,
-    };
-  });
-}
+
+    const entrada   = parseFloat(g('entrada'))   || 0;
+    const saida     = parseFloat(g('saida'))     || 0;
+    const contratos = parseFloat(g('contratos')) || 1;
+    const ativo     = g('ativo');
+    const tipo      = g('tipo');  // FIX: lê o tipo (COMPRA/VENDA) para cálculo correto
+
+    const valorPontoMap = { WIN: 0.20, WDO: 10.00, BIT: 0.01 };
+    const vpEl = tr.querySelector('[name="valor_ponto"]');
+    if (!vpEl.value || vpEl.dataset.auto !== 'false') {
+      vpEl.value = valorPontoMap[ativo] || 0.20;
+      vpEl.dataset.auto = 'true';
+    }
+    const vp = parseFloat(vpEl.value) || 0;
+    const diffBruto = saida - entrada;
+    const diff      = tipo === 'VENDA' ? -diffBruto : diffBruto;
+    const pontos    = ativo === 'WDO' ? diff * 1000 : diff;
+    const resultado = pontos * contratos * vp;
+
+    const pontosEl    = tr.querySelector('[name="pontos"]');
+    const resultadoEl = tr.querySelector('[name="resultado"]');
+
+    if (entrada && saida) {
+      pontosEl.value    = pontos.toFixed(2);
+      resultadoEl.value = resultado.toFixed(2);
+      resultadoEl.closest('td').className = resultado >= 0 ? 'val-positive' : 'val-negative';
+
+      // FIX: atualiza td de pontos também
+      pontosEl.closest('td').className = pontos >= 0 ? 'val-positive' : 'val-negative';
+
+      const newStatus = resultado > 0 ? 'GAIN' : resultado < 0 ? 'LOSS' : 'ZERADA';
+      const statusSpan = tr.querySelector('.status-badge');
+      if (statusSpan) {
+        statusSpan.textContent = newStatus;
+        statusSpan.className = 'status-badge ' + (newStatus === 'GAIN' ? 'gain' : newStatus === 'LOSS' ? 'loss' : 'zerada');
+      }
+    }
+  }
+
+  function deleteOpsRow(idx) {
+    STATE.operacoes.splice(idx, 1);
+    renderOpsDetalhada();
+    renderOpsTable();
+    // FIX: atualiza dashboard e charts ao deletar operação
+    renderDashboard();
+    renderCharts();
+    atualizarCampos();
+  }
+
+  function addNewOpsRow() {
+    STATE.operacoes.push({
+      dia: 1, tipo: 'COMPRA', ativo: 'WIN',
+      entrada: '', saida: '', contratos: 1,
+      valor_ponto: 0.20, pontos: '', resultado: '', status: 'GAIN',
+      data_cal: '',  // vazio — buildOpsRow usará o fallback do mês atual
+    });
+    renderOpsDetalhada();
+    document.getElementById('opsDetalhadaBody')?.lastElementChild
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function collectOpsFromTable() {
+    return Array.from(document.querySelectorAll('#opsDetalhadaBody tr')).map(tr => {
+      const g = name => tr.querySelector(`[name="${name}"]`)?.value;
+      // FIX: contratos mínimo 1 (nunca 0), mas preserva o valor digitado se >= 1
+      const contratosRaw = parseInt(g('contratos'));
+      const diaVal       = parseInt(g('dia')) || 1;
+
+      // ─── FIX: coleta data_cal do DOM — preserva o valor editado pelo usuário ───
+      const dataCal = g('data_cal') || `${STATE.month}-${String(diaVal).padStart(2,'0')}`;
+
+      return {
+        dia:         diaVal,
+        data_cal:    dataCal,
+        tipo:        g('tipo')                    || 'COMPRA',
+        ativo:       g('ativo')                   || 'WIN',
+        entrada:     parseFloat(g('entrada'))     || 0,
+        saida:       parseFloat(g('saida'))       || 0,
+        contratos:   isNaN(contratosRaw) || contratosRaw < 1 ? 1 : contratosRaw,
+        valor_ponto: parseFloat(g('valor_ponto')) || 0,
+        pontos:      parseFloat(g('pontos'))      || 0,
+        resultado:   parseFloat(g('resultado'))   || 0,
+        status: tr.querySelector('.status-badge')?.textContent.trim() || 'GAIN',
+        month:       STATE.month,
+      };
+    });
+  }
 
 // ─── CHARTS ───────────────────────────────────────
 const CHARTS = {};
@@ -1296,8 +1464,6 @@ async function saveConfig(statusId) {
   }
 }
 
-// ─── SUBSTITUIR a função saveProjecao inteira no planilha.js ───────────────
-
 async function saveProjecao() {
   const url = '/api/projecao/bulk/';
 
@@ -1437,7 +1603,6 @@ function applyNegativeValueStyling() {
     }
   };
 
-  // 🔥 CORREÇÃO AQUI
   document.querySelectorAll('input[type="number"]').forEach(input => {
 
     // 🚫 IGNORA custo e imposto (sempre vermelho via CSS)
