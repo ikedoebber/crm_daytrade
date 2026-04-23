@@ -17,8 +17,5 @@ class Migration(migrations.Migration):
             name='data_cal',
             field=models.DateField(blank=True, null=True),
         ),
-        migrations.AddIndex(
-            model_name='operacao',
-            index=models.Index(fields=['user', 'month', 'dia'], name='planilha_op_user_id_292333_idx'),
-        ),
+        migrations.AddIndex(...),
     ]
