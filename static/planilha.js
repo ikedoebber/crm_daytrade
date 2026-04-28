@@ -127,9 +127,11 @@ function buildMonthSelector() {
     sel.appendChild(o);
   });
   const cur = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  sel.value  = cur;
-  STATE.month = cur;
-}
+  const saved = localStorage.getItem('selectedMonth');
+  const validOption = Array.from(sel.options).some(o => o.value === saved);
+  sel.value   = (saved && validOption) ? saved : cur;
+  STATE.month = sel.value;
+  }
 
 // ─── CARREGAR TUDO DA API ─────────────────────────
 async function loadAll(month) {
@@ -171,21 +173,21 @@ function renderAll() {
   applyNegativeValueStyling();
 }
 
-// ─── POST-SAVE RENDER ─────────────────────────────
 async function postSaveRender() {
   try {
-    const [capitalAtual, projecao] = await Promise.all([
+    const [capitalAtual, projecao, operacoes] = await Promise.all([
       API.get(`/api/projecao/capital-atual/?month=${STATE.month}`),
       API.get(`/api/projecao/?month=${STATE.month}`),
+      API.get(`/api/operacoes/?month=${STATE.month}`),
     ]);
     STATE.capital_atual = capitalAtual || {};
     STATE.projecao      = projecao;
+    STATE.operacoes     = operacoes;
   } catch (e) {
     console.error('Erro ao recarregar dados pós-save:', e);
   }
   renderAll();
 }
-
 // ─── CONFIG INPUTS ────────────────────────────────
 function fillConfigInputs() {
   const c = STATE.config;
@@ -1668,9 +1670,12 @@ function setCurrentDate() {
 // ─── EVENTOS ──────────────────────────────────────
 function bindEvents() {
   document.getElementById('monthSelect')?.addEventListener('change', e => {
-    STATE.month = e.target.value;
-    loadAll(STATE.month);
-  });
+  STATE.month = e.target.value;
+  localStorage.setItem('selectedMonth', STATE.month);
+  STATE.operacoes = [];
+  STATE.projecao  = [];
+  loadAll(STATE.month);
+});
 
   ['cfg_banca_inicial','cfg_objetivo_diario','cfg_dias_uteis'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', () => {
@@ -1722,6 +1727,157 @@ function bindEvents() {
     if (e.ctrlKey && e.key === 'Enter') saveDiario();
   });
   document.getElementById('addRegraButton')?.addEventListener('click', addRegra);
+
+  // ─── GESTÃO DE RISCO ──────────────────────
+  const valuePerPointMap = { WIN: 0.20, WDO: 10.00 };
+  let gestaoAtivoAtual = 'WIN';
+
+  function gestaoAtualizarAtivoDisplay() {
+    document.getElementById('gestaoAtivoDisplay').textContent = gestaoAtivoAtual;
+    document.getElementById('abaWinBtn').classList.toggle('active', gestaoAtivoAtual === 'WIN');
+    document.getElementById('abaWdoBtn').classList.toggle('active', gestaoAtivoAtual === 'WDO');
+
+    // Atualiza estilos dos botões
+    document.getElementById('abaWinBtn').style.background = gestaoAtivoAtual === 'WIN' 
+      ? 'rgba(0,255,127,.2)' : 'rgba(255,255,255,.08)';
+    document.getElementById('abaWinBtn').style.color = gestaoAtivoAtual === 'WIN' 
+      ? 'var(--neon)' : 'var(--muted)';
+    document.getElementById('abaWdoBtn').style.background = gestaoAtivoAtual === 'WDO' 
+      ? 'rgba(0,255,127,.2)' : 'rgba(255,255,255,.08)';
+    document.getElementById('abaWdoBtn').style.color = gestaoAtivoAtual === 'WDO' 
+      ? 'var(--neon)' : 'var(--muted)';
+  }
+
+  function gestaoCalcularContratos() {
+    const risco = parseFloat(document.getElementById('gestaoRiscoFinanceiro').value) || 500;
+    const stop = parseFloat(document.getElementById('gestaoStopPontos').value) || 150;
+    const valorPorPonto = valuePerPointMap[gestaoAtivoAtual] || 0.20;
+
+    if (stop <= 0 || risco <= 0 || valorPorPonto <= 0) {
+      document.getElementById('gestaoContratoRec').textContent = '—';
+      document.getElementById('gestaoExatoMsg').textContent = '';
+      document.getElementById('gestaoRiscoPorContrato').textContent = '—';
+      document.getElementById('gestaoRiscoEfetivo').textContent = '—';
+      document.getElementById('gestaoEconomiaRisco').textContent = '—';
+      document.getElementById('gestaoAlertaMsg').style.display = 'none';
+      return;
+    }
+
+    // Calcula risco por contrato: stop (pontos) * valor_por_ponto * 1 contrato
+    const riscoPorContrato = stop * valorPorPonto;
+
+    // Calcula número de contratos: risco_financeiro / risco_por_contrato
+    const contratoExato = risco / riscoPorContrato;
+    const contratoRec = Math.floor(contratoExato);
+    const contratoProx = Math.ceil(contratoExato);
+
+    // Calcula riscos efetivos
+    const riscoEfetivoRec = contratoRec * riscoPorContrato;
+    const riscoEfetivoProx = contratoProx * riscoPorContrato;
+
+    // Economia de risco para a recomendação
+    const economiaRisco = risco - riscoEfetivoRec;
+
+    // Atualiza display
+    document.getElementById('gestaoContratoRec').textContent = contratoRec;
+    document.getElementById('gestaoExatoMsg').textContent = 
+      contratoExato === contratoRec 
+        ? contratoRec + ' exato'
+        : `${contratoRec} exato → arredondado para baixo`;
+    
+    document.getElementById('gestaoRiscoPorContrato').textContent = fmt.brl(riscoPorContrato);
+    document.getElementById('gestaoRiscoEfetivo').textContent = fmt.brl(riscoEfetivoRec);
+    document.getElementById('gestaoEconomiaRisco').textContent = fmt.brl(economiaRisco);
+
+    // Mostra alerta se próximo contrato ultrapassaria o limite
+    const alerta = document.getElementById('gestaoAlertaMsg');
+    if (riscoEfetivoProx > risco) {
+      alerta.style.display = 'block';
+      document.getElementById('gestaoAlertaTxt').textContent = 
+        `⚠️ ${contratoProx} contratos ultrapassaria R$ ${fmt.brl(riscoEfetivoProx - risco)}`;
+    } else {
+      alerta.style.display = 'none';
+    }
+
+    // Renderiza tabela prática
+    gestaoRenderizarTabelaPratica(risco);
+  }
+
+ function gestaoRenderizarTabelaPratica(riscoFixo) {
+  const valorPorPonto = valuePerPointMap[gestaoAtivoAtual] || 0.20;
+  const stops = [50, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000];
+  
+  const tbody = document.getElementById('gestaoTabelaBody');
+  tbody.innerHTML = '';
+
+  document.getElementById('gestaoTabelaRiscoLabel').textContent = riscoFixo.toFixed(0);
+
+  stops.forEach(stopPontos => {
+    const riscoPorContrato = stopPontos * valorPorPonto;
+
+    if (riscoPorContrato <= 0) return;
+
+    // 🔥 NOVA LÓGICA (baixo vs cima)
+    const contratosBaixo = Math.floor(riscoFixo / riscoPorContrato);
+    const contratosCima = Math.ceil(riscoFixo / riscoPorContrato);
+
+    const riscoBaixo = contratosBaixo * riscoPorContrato;
+    const riscoCima = contratosCima * riscoPorContrato;
+
+    let status = '';
+    let contratos = contratosBaixo;
+    let riscoTotal = riscoBaixo;
+
+    if (riscoBaixo === riscoFixo) {
+      status = '✓ Exato';
+    } else if ((riscoFixo - riscoBaixo) <= (riscoCima - riscoFixo)) {
+      status = '↘️ Abaixo (seguro)';
+    } else {
+      status = '↗️ Acima (agressivo)';
+      contratos = contratosCima;
+      riscoTotal = riscoCima;
+    }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family:var(--mono);color:var(--neon2)">${stopPontos}</td>
+      <td style="font-family:var(--mono);color:var(--neon2)">${fmt.brl(riscoPorContrato)}</td>
+      <td style="font-family:var(--mono);color:var(--neon2);font-weight:600">${contratos}</td>
+      <td style="font-family:var(--mono);color:var(--neon2)">${fmt.brl(riscoTotal)}</td>
+      <td style="text-align:center">
+        <span style="padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600;${
+          status === '✓ Exato' 
+            ? 'background:rgba(0,255,127,.2);color:var(--neon)' 
+            : status.includes('Abaixo')
+            ? 'background:rgba(0,200,255,.2);color:var(--neon3)'
+            : 'background:rgba(255,100,100,.2);color:#ff6464'
+        }">${status}</span>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+  // Eventos da Gestão de Risco
+  document.getElementById('abaWinBtn')?.addEventListener('click', () => {
+    gestaoAtivoAtual = 'WIN';
+    gestaoAtualizarAtivoDisplay();
+    gestaoCalcularContratos();
+  });
+
+  document.getElementById('abaWdoBtn')?.addEventListener('click', () => {
+    gestaoAtivoAtual = 'WDO';
+    gestaoAtualizarAtivoDisplay();
+    gestaoCalcularContratos();
+  });
+
+  document.getElementById('gestaoRiscoFinanceiro')?.addEventListener('input', gestaoCalcularContratos);
+  document.getElementById('gestaoStopPontos')?.addEventListener('input', gestaoCalcularContratos);
+  document.getElementById('calcularRiscoBtn')?.addEventListener('click', gestaoCalcularContratos);
+
+  // Inicializa com valores padrão
+  gestaoAtualizarAtivoDisplay();
+  gestaoCalcularContratos();
 }
 
 // ─── INIT ─────────────────────────────────────────
@@ -1846,24 +2002,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const allContents  = document.querySelectorAll('.tab-content');
 
   function switchTab(tabName) {
-    /* Hide all content panels */
     allContents.forEach(el => el.classList.remove('active'));
-
-    /* Deactivate all tab buttons (top nav) */
     topTabs.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabName));
-
-    /* Deactivate all sidebar items */
     sidebarItems.forEach(item => item.classList.toggle('active', item.dataset.tab === tabName));
-
-    /* Show selected panel */
     const panel = document.getElementById('tab-' + tabName);
     if (panel) {
       panel.classList.add('active');
-      // Scroll main content to top on tab switch
       mainContent.scrollTo({ top: 0, behavior: 'smooth' });
     }
-
-    /* On mobile: close sidebar after selection */
+    if (tabName === 'dashboard') loadAll(STATE.month);
     if (isMobile) closeMobile();
   }
 
