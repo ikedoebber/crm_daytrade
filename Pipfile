@@ -7,6 +7,8 @@ name = "pypi"
 django = "*"
 django-decouple = "*"
 psycopg2-binary = "*"
+openai = "*"
+httpx = "*"
 
 [dev-packages]
 

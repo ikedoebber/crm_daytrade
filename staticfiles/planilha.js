@@ -111,6 +111,12 @@ function setStatus(id, msg, type = '') {
 // ─── MÊS ─────────────────────────────────────────
 function buildMonthSelector() {
   const sel = document.getElementById('monthSelect');
+  if (!sel) {
+    // Guard: set a default month if selector not found
+    const now = new Date();
+    STATE.month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    return;
+  }
   const now  = new Date();
   const months = [];
   for (let i = -3; i <= 12; i++) {
@@ -1880,156 +1886,121 @@ function bindEvents() {
   gestaoCalcularContratos();
 }
 
-// ─── INIT ─────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  setCurrentDate();
-  buildMonthSelector();
-  initTabs();
-  bindEvents();
-  loadAll(STATE.month);
-});
-
-/* ════════════════════════════════════════════════════════
-   SIDEBAR — Add this block to planilha.js (top-level,
-   runs after DOMContentLoaded)
-   ════════════════════════════════════════════════════════ */
-
-(function initSidebar() {
-  /* ── Elements ─────────────────────────────── */
-  const sidebar      = document.querySelector('.sidebar');
-  const mainLayout   = document.querySelector('.main-layout');
-  const mainContent  = document.querySelector('.main-content');
-  const toggleBtn    = document.getElementById('sidebarToggle');
-  const sidebarItems = document.querySelectorAll('.sidebar-nav-item');
-
-  if (!sidebar) return;   // guard if sidebar not in DOM
-
-  /* ── Backdrop (mobile overlay) ────────────── */
-  const backdrop = document.createElement('div');
-  backdrop.className = 'sidebar-backdrop';
-  document.body.appendChild(backdrop);
-
-  /* ── Mobile trigger button ────────────────── */
-  const mobileTrigger = document.createElement('button');
-  mobileTrigger.className = 'sidebar-mobile-trigger';
-  mobileTrigger.setAttribute('aria-label', 'Open menu');
-  mobileTrigger.innerHTML = '<span></span><span></span><span></span>';
-  document.body.appendChild(mobileTrigger);
-
-  /* ── Persist collapse state ───────────────── */
-  const STORAGE_KEY = 'sidebar_collapsed';
-  let isCollapsed = localStorage.getItem(STORAGE_KEY) === 'true';
-  let isMobile    = window.innerWidth <= 900;
-
-  /* ── Data-label attributes for collapsed tooltips ── */
-  sidebarItems.forEach(item => {
-    const label = item.querySelector('.label');
-    if (label) item.setAttribute('data-label', label.textContent.trim());
+  // ─── INIT ─────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    setCurrentDate();
+    buildMonthSelector();  // STATE.month definido aqui
+    bindEvents();
+    initSidebar();         // initSidebar chama switchTab → loadAll com mês correto
   });
 
-  /* ── Apply collapse (desktop only) ───────── */
-  function applyCollapse(collapsed) {
-    if (isMobile) return;
-    isCollapsed = collapsed;
-    sidebar.classList.toggle('collapsed', collapsed);
-    mainContent.style.marginLeft = collapsed ? '60px' : '220px';
-    localStorage.setItem(STORAGE_KEY, collapsed);
-  }
+  function initSidebar() {
+    const sidebar      = document.querySelector('.sidebar');
+    const mainContent  = document.querySelector('.main-content');
+    const toggleBtn    = document.getElementById('sidebarToggle');
+    const sidebarItems = document.querySelectorAll('.sidebar-nav-item');
 
-  /* ── Init state ───────────────────────────── */
-  function initState() {
-    isMobile = window.innerWidth <= 900;
-    if (isMobile) {
-      sidebar.classList.remove('collapsed');
-      mainContent.style.marginLeft = '0';
-    } else {
-      applyCollapse(isCollapsed);
-    }
-  }
+    if (!sidebar) return;
 
-  initState();
+    const backdrop = document.createElement('div');
+    backdrop.className = 'sidebar-backdrop';
+    document.body.appendChild(backdrop);
 
-  /* ── Toggle (desktop: collapse/expand) ──────────────────
-        (mobile: handled via mobileTrigger)             */
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', () => {
-      if (isMobile) {
-        openMobile();
-      } else {
-        applyCollapse(!isCollapsed);
-      }
+    const mobileTrigger = document.createElement('button');
+    mobileTrigger.className = 'sidebar-mobile-trigger';
+    mobileTrigger.setAttribute('aria-label', 'Open menu');
+    mobileTrigger.innerHTML = '<span></span><span></span><span></span>';
+    document.body.appendChild(mobileTrigger);
+
+    const STORAGE_KEY = 'sidebar_collapsed';
+    let isCollapsed = localStorage.getItem(STORAGE_KEY) === 'true';
+    let isMobile    = window.innerWidth <= 900;
+
+    sidebarItems.forEach(item => {
+      const label = item.querySelector('.label');
+      if (label) item.setAttribute('data-label', label.textContent.trim());
     });
-  }
 
-  /* ── Mobile open/close ────────────────────── */
-  function openMobile() {
-    sidebar.classList.add('mobile-open');
-    backdrop.classList.add('visible');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closeMobile() {
-    sidebar.classList.remove('mobile-open');
-    backdrop.classList.remove('visible');
-    document.body.style.overflow = '';
-  }
-
-  mobileTrigger.addEventListener('click', openMobile);
-  backdrop.addEventListener('click', closeMobile);
-
-  /* ── Resize handler ───────────────────────── */
-  let resizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      const wasMobile = isMobile;
-      isMobile = window.innerWidth <= 900;
-      if (wasMobile !== isMobile) {
-        if (!isMobile) {
-          closeMobile();
-          applyCollapse(isCollapsed);
-        } else {
-          sidebar.classList.remove('collapsed');
-          mainContent.style.marginLeft = '0';
-        }
-      }
-    }, 100);
-  });
-
-  /* ── TAB SWITCHING ────────────────────────── */
-  // All clickable tab triggers (both top-nav .tab and sidebar .sidebar-nav-item)
-  const topTabs      = document.querySelectorAll('nav .tab[data-tab]');
-  const allContents  = document.querySelectorAll('.tab-content');
-
-  function switchTab(tabName) {
-    allContents.forEach(el => el.classList.remove('active'));
-    topTabs.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabName));
-    sidebarItems.forEach(item => item.classList.toggle('active', item.dataset.tab === tabName));
-    const panel = document.getElementById('tab-' + tabName);
-    if (panel) {
-      panel.classList.add('active');
-      mainContent.scrollTo({ top: 0, behavior: 'smooth' });
+    function applyCollapse(collapsed) {
+      if (isMobile) return;
+      isCollapsed = collapsed;
+      sidebar.classList.toggle('collapsed', collapsed);
+      mainContent.style.marginLeft = collapsed ? '60px' : '220px';
+      localStorage.setItem(STORAGE_KEY, collapsed);
     }
-    if (tabName === 'dashboard') loadAll(STATE.month);
-    if (isMobile) closeMobile();
+
+    function initState() {
+      isMobile = window.innerWidth <= 900;
+      if (isMobile) {
+        sidebar.classList.remove('collapsed');
+        mainContent.style.marginLeft = '0';
+      } else {
+        applyCollapse(isCollapsed);
+      }
+    }
+
+    initState();
+
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        if (isMobile) openMobile();
+        else applyCollapse(!isCollapsed);
+      });
+    }
+
+    function openMobile() {
+      sidebar.classList.add('mobile-open');
+      backdrop.classList.add('visible');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeMobile() {
+      sidebar.classList.remove('mobile-open');
+      backdrop.classList.remove('visible');
+      document.body.style.overflow = '';
+    }
+
+    mobileTrigger.addEventListener('click', openMobile);
+    backdrop.addEventListener('click', closeMobile);
+
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const wasMobile = isMobile;
+        isMobile = window.innerWidth <= 900;
+        if (wasMobile !== isMobile) {
+          if (!isMobile) { closeMobile(); applyCollapse(isCollapsed); }
+          else { sidebar.classList.remove('collapsed'); mainContent.style.marginLeft = '0'; }
+        }
+      }, 100);
+    });
+
+    const topTabs     = document.querySelectorAll('nav .tab[data-tab]');
+    const allContents = document.querySelectorAll('.tab-content');
+
+    function switchTab(tabName) {
+      allContents.forEach(el => el.classList.remove('active'));
+      topTabs.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabName));
+      sidebarItems.forEach(item => item.classList.toggle('active', item.dataset.tab === tabName));
+      const panel = document.getElementById('tab-' + tabName);
+      if (panel) {
+        panel.classList.add('active');
+        mainContent.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      if (tabName === 'dashboard' && STATE.month) loadAll(STATE.month);
+      if (isMobile) closeMobile();
+    }
+
+    sidebarItems.forEach(item => {
+      item.addEventListener('click', () => switchTab(item.dataset.tab));
+    });
+
+    topTabs.forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    const activeTopTab = document.querySelector('nav .tab.active');
+    if (activeTopTab) switchTab(activeTopTab.dataset.tab);
+    else switchTab('dashboard');
   }
-
-  /* Wire up sidebar nav items */
-  sidebarItems.forEach(item => {
-    item.addEventListener('click', () => switchTab(item.dataset.tab));
-  });
-
-  /* Wire up top nav tabs (override any existing listener by replacing) */
-  topTabs.forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-  });
-
-  /* ── Determine active tab on load ─────────── */
-  // Read from currently-active .tab or .tab-content
-  const activeTopTab = document.querySelector('nav .tab.active');
-  if (activeTopTab) {
-    switchTab(activeTopTab.dataset.tab);
-  } else {
-    switchTab('dashboard'); // fallback
-  }
-})();

@@ -14,7 +14,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'accounts',
-    'accounts.planilha',  # Planilha está dentro de accounts
+    'accounts.planilha',
+    'ai',
 ]
 
 MIDDLEWARE = [
@@ -71,7 +72,7 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -101,6 +102,10 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key-mude-em-produ
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
 CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='').split(',')
+
+# OpenAI Configuration
+OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
+OPENAI_MODEL = config('OPENAI_MODEL', default='gpt-3.5-turbo')
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
 CSRF_COOKIE_SECURE = True

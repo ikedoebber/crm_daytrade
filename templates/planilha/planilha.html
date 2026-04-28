@@ -7,6 +7,7 @@
 <title>Planilha do Trader Consistente</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
 <link rel="stylesheet" href="{% static 'planilha.css' %}">
 </head>
 <body>
@@ -24,6 +25,10 @@
       <button class="sidebar-nav-item active" data-tab="dashboard">
         <span class="icon">📊</span>
         <span class="label">Dashboard</span>
+      </button>
+      <button class="sidebar-nav-item" data-tab="ia">
+        <span class="icon">🤖</span>
+        <span class="label">Análise IA</span>
       </button>
       <button class="sidebar-nav-item" data-tab="projecao">
         <span class="icon">📈</span>
@@ -167,8 +172,7 @@
     </div>
   </div>
 
-  <!-- Gráfico -->
-    <!-- Calendário de Performance -->
+  <!-- Calendário de Performance -->
   <div class="section-title">Calendário de Performance</div>
   <div class="card">
     <div id="calendarContainer"></div>
@@ -208,6 +212,49 @@
 
   <div class="sep"></div>
 </div>
+
+  <!-- ======= ANÁLISE IA ======= -->
+  <div id="tab-ia" class="tab-content">
+    <div class="sep"></div>
+
+    <div class="section-title">🤖 Análise IA (Agent Trading)</div>
+    <p style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.6">
+      Clique no botão abaixo para gerar uma análise automática de trading baseada nos seus dados atuais. 
+      O sistema analisa suas operações, performance e estatísticas para fornecer insights estratégicos.
+    </p>
+
+    <div class="card">
+      <div style="display:flex;gap:12px;margin-bottom:16px;">
+        <button type="button" id="invokeAgentBtn" class="btn-save">⚡ Gerar Análise IA</button>
+        <span id="agentStatus" class="save-status"></span>
+      </div>
+      <div style="position:relative;min-height:100px;">
+        <textarea id="agentResponse" 
+                  style="width:100%;min-height:300px;padding:12px;border:1px solid var(--border);border-radius:6px;font-family:var(--mono);font-size:11px;background:var(--bg-secondary);color:var(--text);resize:vertical;overflow-y:auto"
+                  readonly
+                  placeholder="Clique em 'Gerar Análise IA' para visualizar a resposta aqui..."></textarea>
+      </div>
+      <div style="margin-top:12px;font-size:10px;color:var(--muted);text-align:right;">
+        <span id="agentTimestamp"></span>
+      </div>
+    </div>
+
+    <div class="section-title">Sobre a Análise IA</div>
+    <div class="card" style="background:rgba(0,200,255,.08);border-left:3px solid var(--neon3)">
+      <p style="margin:0;font-size:12px;color:var(--text);line-height:1.6">
+        <strong>A análise IA baseada em agent trading</strong> avalia seus dados de operações, capital, performance e estratégia para fornecer:
+      </p>
+      <ul style="font-size:11px;color:var(--text);margin:12px 0 0 0;padding-left:20px;line-height:1.8">
+        <li>Estatísticas e métricas de desempenho</li>
+        <li>Identificação de padrões e tendências</li>
+        <li>Sugestões de otimização de estratégia</li>
+        <li>Alertas sobre risco e gestão de capital</li>
+        <li>Recomendações baseadas em seu histórico</li>
+      </ul>
+    </div>
+
+    <div class="sep"></div>
+  </div>
 
   <!-- ======= PROJEÇÃO DIÁRIA ======= -->
   <div id="tab-projecao" class="tab-content">
@@ -657,5 +704,6 @@
 </script>
 <script src="{% static 'calculos-v2.js' %}"></script>
 <script src="{% static 'planilha.js' %}"></script>
+<script src="{% static 'ia.js' %}"></script>
 </body>
 </html>
