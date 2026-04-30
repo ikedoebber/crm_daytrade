@@ -12,7 +12,7 @@ services:
 
   web:
     build: .
-    command: gunicorn planilha_trader.wsgi:application --bind 0.0.0.0:8032 --reload
+    command: gunicorn planilha_trader.wsgi:application --bind 0.0.0.0:8032 --timeout 120 --workers 2 --threads 2 --reload
     volumes:
       - .:/app
     ports:

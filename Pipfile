@@ -9,6 +9,7 @@ django-decouple = "*"
 psycopg2-binary = "*"
 openai = "*"
 httpx = "*"
+Pillow = "*"
 
 [dev-packages]
 

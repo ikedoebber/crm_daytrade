@@ -1399,6 +1399,649 @@ textarea::placeholder { color: var(--t-dim); }
   min-height: 110px;
 }
 
+/* ════════════════════════════════════════════════
+   MELHORIAS DE LEGIBILIDADE — ABA IA
+   ════════════════════════════════════════════════ */
+
+#tab-ia {
+  /* Espaçamento geral melhorado */
+}
+
+/* Títulos da seção de IA - aumentado e melhorado */
+#tab-ia .section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--t-primary);
+  margin: 32px 0 18px;
+  letter-spacing: .15em;
+  padding-bottom: 10px;
+}
+
+#tab-ia .section-title::before {
+  width: 3px;
+  height: 12px;
+  background: linear-gradient(180deg, var(--c-cyan), var(--c-blue));
+}
+
+/* Descrição da análise IA - aumentado */
+#tab-ia > p {
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+  line-height: 1.8 !important;
+  color: var(--t-secondary) !important;
+  margin-bottom: 24px !important;
+}
+
+/* Card da análise IA - melhorado */
+#tab-ia .card {
+  background: linear-gradient(135deg, var(--c-bg1) 0%, rgba(0, 212, 170, 0.02) 100%);
+  border: 1px solid rgba(0, 212, 170, 0.15);
+}
+
+/* Textarea da resposta - MUITO MELHORADO */
+#agentResponse {
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+  line-height: 1.9 !important;
+  padding: 16px 18px !important;
+  background: var(--c-bg2) !important;
+  border: 1px solid var(--b-medium) !important;
+  color: var(--t-primary) !important;
+  min-height: 400px !important;
+  letter-spacing: 0.3px;
+  word-break: break-word;
+}
+
+#agentResponse:focus {
+  border-color: var(--c-cyan) !important;
+  background: linear-gradient(135deg, var(--c-bg2) 0%, rgba(0, 212, 170, 0.03) 100%) !important;
+  box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.08) !important;
+}
+
+#agentResponse::placeholder {
+  color: var(--t-muted) !important;
+  font-size: 13px !important;
+}
+
+/* Timestamp da resposta */
+#tab-ia [style*="font-size:10px"][style*="color:var(--muted)"] {
+  font-size: 12px !important;
+  color: var(--t-muted) !important;
+}
+
+/* Botão Gerar Análise - melhorado */
+#invokeAgentBtn {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 11px 24px !important;
+  letter-spacing: .1em !important;
+  box-shadow: 0 6px 20px rgba(0,212,170,.25) !important;
+}
+
+#invokeAgentBtn:hover:not(:disabled) {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 28px rgba(0,212,170,.35) !important;
+}
+
+/* Status da análise */
+#agentStatus {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+/* Upload de imagem - melhorado */
+#tab-ia input[type="file"] {
+  font-size: 12px !important;
+  color: var(--t-secondary) !important;
+  padding: 10px !important;
+}
+
+#tab-ia input[type="file"]::file-selector-button {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 8px 14px !important;
+  background: var(--c-cyan-dim) !important;
+  color: var(--c-cyan) !important;
+  border: 1px solid var(--b-cyan) !important;
+  border-radius: var(--r-md) !important;
+  cursor: pointer !important;
+  transition: all .2s !important;
+}
+
+#tab-ia input[type="file"]::file-selector-button:hover {
+  background: rgba(0, 212, 170, .2) !important;
+  color: var(--c-cyan) !important;
+}
+
+/* Upload preview label */
+#tab-ia label[for="imageUploadInput"] {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--t-primary) !important;
+}
+
+/* Dica de upload */
+#tab-ia p[style*="font-size:10px"] {
+  font-size: 12px !important;
+  color: var(--t-muted) !important;
+  line-height: 1.6 !important;
+}
+
+/* Container de preview */
+#imagePreviewContainer {
+  font-size: 12px !important;
+}
+
+#imagePreviewContainer img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--r-md);
+  border: 1px solid var(--b-soft);
+  margin-top: 10px;
+}
+
+/* Card de informações sobre a IA */
+#tab-ia .card[style*="background:rgba(0,200,255"] {
+  background: linear-gradient(135deg, rgba(0, 200, 255, 0.08) 0%, rgba(0, 212, 170, 0.04) 100%) !important;
+  border: 1px solid rgba(0, 200, 255, 0.2) !important;
+}
+
+#tab-ia .card[style*="background:rgba(0,200,255"] p {
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+  line-height: 1.8 !important;
+  color: var(--t-primary) !important;
+}
+
+#tab-ia .card[style*="background:rgba(0,200,255"] strong {
+  color: var(--c-cyan) !important;
+  font-weight: 700 !important;
+}
+
+#tab-ia .card[style*="background:rgba(0,200,255"] ul {
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  line-height: 1.9 !important;
+  color: var(--t-secondary) !important;
+  margin: 14px 0 0 20px !important;
+}
+
+#tab-ia .card[style*="background:rgba(0,200,255"] li {
+  margin-bottom: 8px !important;
+  color: var(--t-primary) !important;
+}
+
+/* Div de flex do botão - melhorado */
+#tab-ia > div:nth-child(3) > div[style*="display:flex"] {
+  gap: 16px !important;
+  align-items: center !important;
+}
+
+/* Div de upload - melhorado */
+#tab-ia > div:nth-child(3) > div[style*="margin-bottom:16px"][style*="padding:12px"] {
+  background: rgba(0, 212, 170, 0.06) !important;
+  border: 1px dashed rgba(0, 212, 170, 0.2) !important;
+  padding: 14px !important;
+  border-radius: var(--r-lg) !important;
+}
+
+/* Flex dentro do upload */
+#tab-ia > div:nth-child(3) > div[style*="margin-bottom:16px"][style*="padding:12px"] > div[style*="display:flex"] {
+  gap: 12px !important;
+  align-items: flex-start !important;
+  margin-bottom: 12px !important;
+}
+
+/* Text improvement geral na aba IA */
+#tab-ia * {
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* Line height padrão melhorado */
+#tab-ia div,
+#tab-ia p,
+#tab-ia span {
+  line-height: 1.7 !important;
+}
+
+/* ════════════════════════════════════════════════
+   MARKDOWN RENDERING — ABA IA
+   ════════════════════════════════════════════════ */
+
+.markdown-content {
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+  line-height: 1.9 !important;
+  color: var(--t-primary) !important;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Headings */
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  font-family: var(--font-sans) !important;
+  font-weight: 700 !important;
+  margin: 20px 0 12px 0 !important;
+  color: var(--c-cyan) !important;
+  line-height: 1.5 !important;
+}
+
+.markdown-content h1 {
+  font-size: 22px !important;
+  border-bottom: 2px solid var(--b-cyan) !important;
+  padding-bottom: 10px !important;
+}
+
+.markdown-content h2 {
+  font-size: 19px !important;
+  border-bottom: 1px solid var(--b-cyan) !important;
+  padding-bottom: 8px !important;
+}
+
+.markdown-content h3 {
+  font-size: 16px !important;
+  color: var(--c-blue) !important;
+}
+
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  font-size: 14px !important;
+  color: var(--t-secondary) !important;
+}
+
+/* Parágrafos */
+.markdown-content p {
+  margin: 12px 0 !important;
+  line-height: 1.9 !important;
+  color: var(--t-secondary) !important;
+}
+
+/* Strong/Bold */
+.markdown-content strong,
+.markdown-content b {
+  font-weight: 700 !important;
+  color: var(--c-cyan) !important;
+}
+
+/* Italic */
+.markdown-content em,
+.markdown-content i {
+  font-style: italic !important;
+  color: var(--t-primary) !important;
+}
+
+/* Links */
+.markdown-content a {
+  color: var(--c-blue) !important;
+  text-decoration: none !important;
+  border-bottom: 1px solid rgba(77, 142, 240, 0.3) !important;
+  transition: all .2s !important;
+}
+
+.markdown-content a:hover {
+  color: var(--c-cyan) !important;
+  border-bottom-color: var(--c-cyan) !important;
+  background: rgba(0, 212, 170, 0.08) !important;
+  padding: 0 2px !important;
+}
+
+/* Lists */
+.markdown-content ul,
+.markdown-content ol {
+  margin: 14px 0 !important;
+  padding-left: 24px !important;
+  color: var(--t-secondary) !important;
+}
+
+.markdown-content li {
+  margin: 8px 0 !important;
+  line-height: 1.9 !important;
+  color: var(--t-primary) !important;
+}
+
+.markdown-content ul li::marker {
+  color: var(--c-cyan) !important;
+}
+
+.markdown-content ol li::marker {
+  color: var(--c-blue) !important;
+}
+
+/* Code inline */
+.markdown-content code {
+  background: rgba(0, 212, 170, 0.12) !important;
+  border: 1px solid rgba(0, 212, 170, 0.2) !important;
+  border-radius: 4px !important;
+  padding: 2px 6px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  color: var(--c-cyan) !important;
+}
+
+/* Code blocks */
+.markdown-content pre {
+  background: var(--c-bg1) !important;
+  border: 1px solid var(--b-medium) !important;
+  border-radius: 8px !important;
+  padding: 14px 16px !important;
+  margin: 14px 0 !important;
+  overflow-x: auto !important;
+}
+
+.markdown-content pre code {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  color: var(--c-cyan) !important;
+  font-size: 12px !important;
+  line-height: 1.7 !important;
+  display: block !important;
+}
+
+/* Blockquotes */
+.markdown-content blockquote {
+  border-left: 3px solid var(--c-blue) !important;
+  margin: 14px 0 !important;
+  padding: 12px 16px !important;
+  background: rgba(77, 142, 240, 0.06) !important;
+  border-radius: 4px !important;
+  color: var(--t-secondary) !important;
+  font-style: italic !important;
+}
+
+/* Horizontal rule */
+.markdown-content hr {
+  border: none !important;
+  border-top: 1px solid var(--b-medium) !important;
+  margin: 20px 0 !important;
+}
+
+/* Tables */
+.markdown-content table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 14px 0 !important;
+  border: 1px solid var(--b-soft) !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+}
+
+.markdown-content table thead {
+  background: var(--c-bg2) !important;
+}
+
+.markdown-content table th {
+  padding: 10px 12px !important;
+  text-align: left !important;
+  color: var(--c-cyan) !important;
+  font-weight: 700 !important;
+  border-bottom: 1px solid var(--b-medium) !important;
+}
+
+.markdown-content table td {
+  padding: 10px 12px !important;
+  border-bottom: 1px solid var(--b-soft) !important;
+  color: var(--t-secondary) !important;
+}
+
+.markdown-content table tbody tr:hover {
+  background: rgba(0, 212, 170, 0.04) !important;
+}
+
+/* Imagens */
+.markdown-content img {
+  max-width: 100% !important;
+  height: auto !important;
+  border-radius: 6px !important;
+  border: 1px solid var(--b-soft) !important;
+  margin: 14px 0 !important;
+  display: block !important;
+}
+
+/* ════════════════════════════════════════════════
+   MELHORIAS DE LEGIBILIDADE — GESTÃO DE RISCO
+   ════════════════════════════════════════════════ */
+
+#tab-gestao_risco {
+  /* Espaçamento geral melhorado */
+}
+
+/* Títulos da seção - aumentado */
+#tab-gestao_risco .section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t-primary);
+  margin: 32px 0 18px;
+  letter-spacing: .15em;
+  padding-bottom: 10px;
+}
+
+#tab-gestao_risco .section-title::before {
+  width: 3px;
+  height: 12px;
+  background: linear-gradient(180deg, var(--c-cyan), var(--c-blue));
+}
+
+/* Parágrafo informativo */
+#tab-gestao_risco > div[style*="background:rgba(0,255,127"] p {
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  line-height: 1.8 !important;
+  color: var(--t-secondary) !important;
+}
+
+/* Botões de abas (WIN/WDO) */
+#tab-gestao_risco .btn-tab-ativo {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 12px 16px !important;
+}
+
+/* Plano-card melhorado */
+#tab-gestao_risco .plano-card .section-title {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  margin: 0 0 14px 0 !important;
+}
+
+#tab-gestao_risco .plano-text {
+  font-size: 13px !important;
+  line-height: 1.8 !important;
+  color: var(--t-primary) !important;
+}
+
+#tab-gestao_risco .plano-text strong {
+  font-size: 11px !important;
+  color: var(--t-muted) !important;
+  text-transform: uppercase !important;
+  letter-spacing: .1em !important;
+  font-weight: 700 !important;
+  display: block !important;
+  margin-bottom: 4px !important;
+}
+
+/* Resultado grande */
+#gestaoContratoRec {
+  font-size: 64px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+}
+
+/* Labels e valores em resultado */
+#tab-gestao_risco [style*="font-size:11px"][style*="color:var(--muted)"] {
+  font-size: 12px !important;
+  color: var(--t-muted) !important;
+}
+
+#tab-gestao_risco [style*="font-size:14px"][style*="font-weight:600"] {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+}
+
+/* Princípios fundamentais */
+#tab-gestao_risco [style*="padding:12px"][style*="background:rgba(0,255,127"] p {
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  line-height: 1.8 !important;
+  color: var(--t-secondary) !important;
+}
+
+#tab-gestao_risco [style*="color:var(--neon)"][style*="font-weight:600"][style*="font-size:12px"] {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: var(--c-cyan) !important;
+  line-height: 1.7 !important;
+}
+
+/* Input fields */
+#tab-gestao_risco .cfg-input {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 10px 12px !important;
+}
+
+/* ════════════════════════════════════════════════
+   MELHORIAS DE LEGIBILIDADE — PLANO DE TRADING
+   ════════════════════════════════════════════════ */
+
+#tab-plano {
+  /* Espaçamento geral melhorado */
+}
+
+/* Títulos das seções */
+#tab-plano .section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t-primary);
+  margin: 32px 0 18px;
+  letter-spacing: .15em;
+  padding-bottom: 10px;
+}
+
+#tab-plano .section-title::before {
+  width: 3px;
+  height: 12px;
+  background: linear-gradient(180deg, var(--c-cyan), var(--c-blue));
+}
+
+/* Checklist melhorado */
+#tab-plano [style*="font-weight:600"][style*="color:var(--neon)"][style*="font-size:12px"] {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: var(--c-cyan) !important;
+  margin-bottom: 10px !important;
+}
+
+#tab-plano ul {
+  font-size: 12px !important;
+  line-height: 1.9 !important;
+  color: var(--t-secondary) !important;
+}
+
+#tab-plano li {
+  margin-bottom: 8px !important;
+  color: var(--t-primary) !important;
+}
+
+/* Label do diário */
+#tab-plano label[style*="color:var(--neon)"] {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: var(--c-cyan) !important;
+  margin-bottom: 12px !important;
+}
+
+/* Textarea do diário */
+#plano_diario {
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  line-height: 1.8 !important;
+  padding: 14px 16px !important;
+  color: var(--t-secondary) !important;
+  min-height: 180px !important;
+}
+
+#plano_diario:focus {
+  color: var(--t-primary) !important;
+}
+
+#plano_diario::placeholder {
+  color: var(--t-muted) !important;
+  font-size: 12px !important;
+}
+
+/* Dica do diário */
+#tab-plano [style*="font-size:11px"][style*="color:var(--muted)"][style*="margin-top:8px"] {
+  font-size: 12px !important;
+  color: var(--t-muted) !important;
+  line-height: 1.6 !important;
+}
+
+/* Título dentro dos plano-cards */
+#tab-plano .plano-card .section-title {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  margin: 0 0 14px 0 !important;
+}
+
+/* Plano-text melhorado */
+#tab-plano .plano-text {
+  font-size: 13px !important;
+  line-height: 1.8 !important;
+  color: var(--t-primary) !important;
+}
+
+#tab-plano .plano-text strong {
+  font-size: 11px !important;
+  color: var(--t-muted) !important;
+  text-transform: uppercase !important;
+  letter-spacing: .1em !important;
+  font-weight: 700 !important;
+  display: block !important;
+  margin-bottom: 4px !important;
+}
+
+/* Inputs do plano */
+#tab-plano .cfg-input {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 10px 12px !important;
+  color: var(--c-cyan) !important;
+}
+
+/* Dica de regras */
+#tab-plano [style*="font-size:11px"][style*="color:var(--muted)"][style*="padding-top:12px"] {
+  font-size: 12px !important;
+  color: var(--t-muted) !important;
+  line-height: 1.7 !important;
+}
+
+#tab-plano [style*="font-size:11px"][style*="color:var(--muted)"][style*="padding-top:12px"] br {
+  content: " ";
+  display: block;
+  margin: 4px 0;
+}
+
+/* Histórico do diário */
+#tab-plano .diario-entry-card .entry-content {
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  line-height: 1.8 !important;
+  color: var(--t-secondary) !important;
+}
+
+#tab-plano .diario-entry-card .entry-date {
+  font-size: 11px !important;
+  color: var(--t-muted) !important;
+}
+
 /* Highlight today's row */
 .row-hoje td { color: var(--t-primary) !important; }
 

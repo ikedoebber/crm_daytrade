@@ -7,6 +7,20 @@
 <title>Planilha do Trader Consistente</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+// Fallback se marked.js não carregar
+window.addEventListener('load', () => {
+  if (typeof marked === 'undefined') {
+    console.warn('marked.js não carregou via CDN, tentando alternativa...');
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js';
+    script.onload = () => console.log('✓ marked.js carregado via fallback');
+    script.onerror = () => console.error('✗ Falha ao carregar marked.js');
+    document.head.appendChild(script);
+  }
+});
+</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
 <link rel="stylesheet" href="{% static 'planilha.css' %}">
 </head>
@@ -228,11 +242,25 @@
         <button type="button" id="invokeAgentBtn" class="btn-save">⚡ Gerar Análise IA</button>
         <span id="agentStatus" class="save-status"></span>
       </div>
-      <div style="position:relative;min-height:100px;">
-        <textarea id="agentResponse" 
-                  style="width:100%;min-height:300px;padding:12px;border:1px solid var(--border);border-radius:6px;font-family:var(--mono);font-size:11px;background:var(--bg-secondary);color:var(--text);resize:vertical;overflow-y:auto"
-                  readonly
-                  placeholder="Clique em 'Gerar Análise IA' para visualizar a resposta aqui..."></textarea>
+      
+      <!-- Upload de Foto para Análise -->
+      <div style="margin-bottom:16px;padding:12px;background:rgba(200,150,255,.1);border:1px dashed var(--border);border-radius:6px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <label for="imageUploadInput" style="font-size:12px;font-weight:600;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:5px;">
+            <span>📸 Anexar Gráfico/Foto:</span>
+          </label>
+        </div>
+        <input type="file" id="imageUploadInput" accept="image/*" onchange="updateImagePreview()" style="font-size:11px;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-secondary);color:var(--text);width:100%;box-sizing:border-box;cursor:pointer;" />
+        <div id="imagePreviewContainer" style="margin-top:10px;"></div>
+        <p style="font-size:10px;color:var(--muted);margin:8px 0 0 0;">💡 Dica: Envie uma foto de um gráfico para análise técnica mais detalhada. A IA analisará junto com seus dados estruturados.</p>
+      </div>
+      
+      <div style="position:relative;min-height:300px;">
+        <div id="agentResponse" 
+             class="markdown-content"
+             style="width:100%;min-height:300px;padding:16px;border:1px solid var(--border);border-radius:6px;background:var(--bg-secondary);color:var(--text);overflow-y:auto;">
+          <p style="color:var(--muted);font-style:italic;">Clique em 'Gerar Análise IA' para visualizar a resposta aqui...</p>
+        </div>
       </div>
       <div style="margin-top:12px;font-size:10px;color:var(--muted);text-align:right;">
         <span id="agentTimestamp"></span>

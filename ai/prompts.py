@@ -57,3 +57,11 @@ Faça uma análise e dê sugestões com base nos dados atuais:
 {{data}}
 Se possível, identifique entradas de alta probabilidade que poderiam gerar movimentos longos (acima de 1000 pontos).
 '''
+
+IMAGE_ANALYSIS_PROMPT = '''
+Além da análise com os dados estruturados, analise também a imagem do gráfico enviada:
+- Confirme as estruturas visuais (topos, fundos, níveis de suporte/resistência)
+- Identifique padrões de vela e comportamento de preço
+- Avalie volumes e força do movimento
+- Combine a análise técnica visual com os dados estruturados para conclusões mais precisas
+'''
