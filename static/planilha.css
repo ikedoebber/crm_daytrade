@@ -658,6 +658,33 @@ nav {
 .card-accent-blue  { border-top: 2px solid var(--c-blue);   }
 .card-accent-amber { border-top: 2px solid var(--c-amber);  }
 
+/* Saved analysis card */
+.saved-analysis-card .analysis-content {
+  margin-top: 8px;
+}
+
+.saved-analysis-card .analysis-text {
+  font-size: 11px;
+  color: var(--t-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.saved-analysis-card img {
+  max-height: 150px;
+  object-fit: cover;
+}
+
+.saved-analysis-card {
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s;
+}
+
+.saved-analysis-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
 /* ─── SECTION TITLE ───────────────────────────────── */
 .section-title {
   font-family: var(--font-sans);
@@ -2064,4 +2091,72 @@ textarea::placeholder { color: var(--t-dim); }
   text-transform: uppercase;
   font-weight: 600;
   min-width: 100px;
+}
+
+/* ─── MODAL ──────────────────────────────────────── */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--c-bg1);
+  border: 1px solid var(--b-medium);
+  border-radius: var(--r-lg);
+  width: 90%;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--b-soft);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  color: var(--t-primary);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--t-muted);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  transition: background .2s;
+}
+
+.modal-close:hover {
+  background: var(--c-bg3);
+  color: var(--t-primary);
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
 }

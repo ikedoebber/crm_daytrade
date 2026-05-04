@@ -317,6 +317,54 @@ document.addEventListener('DOMContentLoaded', () => {
   restoreLastAnalysis();
 });
 
+// ─── MODAL PARA ANÁLISES SALVAS ──────────────────
+function openAnalysisModal(title, content, imageUrl) {
+  const modal = document.getElementById('analysisModal');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalBody = document.getElementById('modalBody');
+
+  if (!modal || !modalTitle || !modalBody) return;
+
+  modalTitle.textContent = `Análise de ${title}`;
+  modalBody.innerHTML = '';
+
+  // Adiciona imagem se existir
+  if (imageUrl && imageUrl !== 'None') {
+    const img = document.createElement('img');
+    img.src = imageUrl;
+    img.alt = 'Análise imagem';
+    img.style.maxWidth = '100%';
+    img.style.borderRadius = '4px';
+    img.style.marginBottom = '16px';
+    modalBody.appendChild(img);
+  }
+
+  // Renderiza o markdown
+  renderMarkdown(content, modalBody);
+
+  modal.style.display = 'flex';
+}
+
+function closeAnalysisModal() {
+  const modal = document.getElementById('analysisModal');
+  if (modal) modal.style.display = 'none';
+}
+
+// Fecha modal ao clicar fora
+document.addEventListener('click', function(event) {
+  const modal = document.getElementById('analysisModal');
+  if (modal && event.target === modal) {
+    closeAnalysisModal();
+  }
+});
+
+// Fecha modal com ESC
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape') {
+    closeAnalysisModal();
+  }
+});
+
 // ─── OBSERVER DE MÊS ─────────────────────────────
 const originalLoadAll = window.loadAll || function() {};
 

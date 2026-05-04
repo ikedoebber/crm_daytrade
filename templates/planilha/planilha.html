@@ -281,6 +281,38 @@ window.addEventListener('load', () => {
       </ul>
     </div>
 
+    <div class="section-title">Análises Salvas</div>
+    <div class="grid-3 saved-analyses-grid">
+      {% for analysis in saved_analyses %}
+      <div class="card saved-analysis-card" onclick="openAnalysisModal('{{ analysis.created_at|date:'d/m/Y H:i' }}', '{{ analysis.result|escapejs }}', {% if analysis.image %}'{{ analysis.image.url }}'{% else %}''{% endif %})">
+        <div class="card-label">{{ analysis.created_at|date:"d/m/Y H:i" }}</div>
+        <div class="analysis-content">
+          {% if analysis.image %}
+          <p style="color:#aaa; font-size:14px;">
+            📊 Imagem analisada
+          </p>
+          {% endif %}
+          <div class="analysis-text">{{ analysis.result|truncatechars:200 }}</div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="card" style="grid-column: 1 / -1;">
+        <p style="color:var(--muted);font-style:italic;margin:0;">Nenhuma análise salva ainda.</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Modal para análise completa -->
+    <div id="analysisModal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalTitle">Análise Completa</h3>
+          <button class="modal-close" onclick="closeAnalysisModal()">&times;</button>
+        </div>
+        <div id="modalBody" class="modal-body markdown-content"></div>
+      </div>
+    </div>
+
     <div class="sep"></div>
   </div>
 
