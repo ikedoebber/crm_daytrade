@@ -939,9 +939,8 @@ tfoot td {
 .val-neutral  { color: var(--t-muted)  !important; }
 
 /* Row state */
-.row-hoje    { background: var(--c-cyan-dim) !important; }
-.row-passado { opacity: .55; }
-.row-futuro  { opacity: .8; }
+.row-passado { }
+.row-futuro  { }
 
 /* ─── TABLE INPUTS ────────────────────────────────── */
 .tbl-input {
@@ -2069,11 +2068,9 @@ textarea::placeholder { color: var(--t-dim); }
   color: var(--t-muted) !important;
 }
 
-/* Highlight today's row */
-.row-hoje td { color: var(--t-primary) !important; }
+
 
 /* Muted rows */
-.row-passado td { color: var(--t-muted); }
 
 /* Inline form row */
 .form-row {

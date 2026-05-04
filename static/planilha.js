@@ -731,14 +731,14 @@ function renderCalendar() {
 
           tr.innerHTML = `
           <td style="color:#ffffff;font-weight:700">
-            ${d}${isHoje ? ' 🔵' : ''}
+            ${d}
           </td>
 
           <td style="color:#ffffff;font-size:11px;font-family:var(--mono)">
             ${dataFmt}
           </td>
 
-          <td style="color:#f7c948">
+          <td style="color:#ff8c00 !important" class="no-auto-color">
             ${fmt.brl(meta)}
           </td>
           <td style="color:var(--text)">${fmt.brl(projecaoDia)}</td>
@@ -1631,6 +1631,7 @@ function applyNegativeValueStyling() {
   });
 
   document.querySelectorAll('td, div, span').forEach(el => {
+    if (el.classList.contains('no-auto-color')) return;
     const hasElementChildren = Array.from(el.children).some(c => c.nodeType === Node.ELEMENT_NODE);
     if (hasElementChildren) return;
 
