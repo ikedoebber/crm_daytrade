@@ -442,30 +442,6 @@ window.addEventListener('load', () => {
   <!-- ======= RELATÓRIOS ======= -->
   <div id="tab-relatorios" class="tab-content">
     <div class="sep"></div>
-    <div class="section-title">Gestão de Risco</div>
-    <div class="grid-3">
-      <div class="card">
-        <div class="card-label">Meta líquida aprovação</div>
-        <input id="cfg_plano_meta_aprovacao" type="number" class="cfg-input" placeholder="1600">
-        <div class="card-sub" style="margin-top:4px">Objetivo de aprovação</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Perda máxima total</div>
-        <input id="cfg_plano_perda_max_total" type="number" class="cfg-input" placeholder="2750">
-        <div class="card-sub" style="margin-top:4px">Stop loss total aprovado</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Perda diária após aprovação</div>
-        <input id="cfg_plano_perda_diaria_aprovacao" type="number" class="cfg-input" placeholder="825">
-        <div class="card-sub" style="margin-top:4px">Limite diário após aprovado</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Projeção Final</div>
-        <div class="card-value blue" id="planoBancaFinal">—</div>
-        <div class="card-sub">Banca Projetada do Mês</div>
-      </div>
-    </div>
-
     <div class="section-title">Gestão Financeira Empresarial</div>
     <div class="grid-4">
       <div class="card"><div class="card-label">Total Custos Operacionais</div><div class="card-value val-negative" id="totalCustosOperacionais">—</div><div class="card-sub">Soma de custos do período</div></div>
@@ -517,16 +493,36 @@ window.addEventListener('load', () => {
       <div class="chart-card"><h3>WDO: Pontos Ganhos vs Perdidos</h3><canvas id="chartWdoGanhosPerdidos" height="140"></canvas></div>
       <div class="chart-card"><h3>Ganho vs Perda Monetária</h3><canvas id="chartGainVsLoss" height="140"></canvas></div>
     </div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:24px;">
-      <button type="button" id="saveRelatoriosBtn" class="btn-save">💾 Salvar Configurações de Risco</button>
-      <span id="saveRelatoriosStatus" class="save-status"></span>
-    </div>
     <div class="sep"></div>
   </div>
 
   <!-- ======= GESTÃO DE RISCO ======= -->
   <div id="tab-gestao_risco" class="tab-content">
+    
     <div class="sep"></div>
+        <div class="section-title">Gestão de Risco</div>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-label">Meta líquida aprovação</div>
+        <input id="cfg_plano_meta_aprovacao" type="number" class="cfg-input" placeholder="1600">
+        <div class="card-sub" style="margin-top:4px">Objetivo de aprovação</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Perda máxima total</div>
+        <input id="cfg_plano_perda_max_total" type="number" class="cfg-input" placeholder="2750">
+        <div class="card-sub" style="margin-top:4px">Stop loss total aprovado</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Perda diária após aprovação</div>
+        <input id="cfg_plano_perda_diaria_aprovacao" type="number" class="cfg-input" placeholder="825">
+        <div class="card-sub" style="margin-top:4px">Limite diário após aprovado</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Projeção Final</div>
+        <div class="card-value blue" id="planoBancaFinal">—</div>
+        <div class="card-sub">Banca Projetada do Mês</div>
+      </div>
+    </div>
 
     <div class="section-title">🧮 Cálculo de Risco</div>
     <div style="background:rgba(0,255,127,.08);border-left:3px solid var(--neon);padding:12px;border-radius:4px;margin-bottom:20px">
@@ -669,6 +665,12 @@ window.addEventListener('load', () => {
           <tbody id="gestaoTabelaBody"></tbody>
         </table>
       </div>
+    </div>
+
+
+    <div style="display:flex;justify-content:flex-end;margin-bottom:24px;">
+      <button type="button" id="saveRelatoriosBtn" class="btn-save">💾 Salvar Configurações de Risco</button>
+      <span id="saveRelatoriosStatus" class="save-status"></span>
     </div>
 
     <div class="sep"></div>
