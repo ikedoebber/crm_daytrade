@@ -106,7 +106,7 @@ async function invokeAgent() {
 
     // ⏱ timeout de segurança
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    const timeout = setTimeout(() => controller.abort(), 120000);
 
     const response = await fetch('/api/agent/invoke/', {
       method: 'POST',

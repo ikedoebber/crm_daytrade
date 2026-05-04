@@ -94,7 +94,7 @@ class SGEAgent:
                         'type': 'image_url',
                         'image_url': {
                             'url': f'data:{media_type};base64,{image_base64}',
-                            'detail': 'high'
+                            'detail': 'low'
                         }
                     })
                     logger.info("Imagem adicionada ao conteúdo")
