@@ -4,12 +4,30 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 from decimal import Decimal
+from datetime import date, timedelta
 
 from .models import PlanilhaConfig, ProjecaoDia, Operacao, DiarioEntry, Regra
 from .serializers import (
     PlanilhaConfigSerializer, ProjecaoDiaSerializer,
     OperacaoSerializer, DiarioEntrySerializer, RegraSerializer,
 )
+
+
+def get_period_info(period):
+    today = date.today()
+    days = {'30d': 30, '3m': 90, '6m': 180, '1y': 365}.get(period)
+    if days:
+        start = today - timedelta(days=days)
+        months = set()
+        current = start
+        while current <= today:
+            months.add(f"{current.year}-{current.month:02d}")
+            current = current.replace(day=1) + timedelta(days=32)
+            current = current.replace(day=1)
+        return start, list(months)
+    else:
+        # assume it's month format
+        return None, [period]
 
 
 class PlanilhaConfigViewSet(viewsets.ModelViewSet):
@@ -20,7 +38,9 @@ class PlanilhaConfigViewSet(viewsets.ModelViewSet):
         qs = PlanilhaConfig.objects.filter(user=self.request.user)
         month = self.request.query_params.get('month')
         if month:
-            qs = qs.filter(month=month)
+            _, months = get_period_info(month)
+            if months:
+                qs = qs.filter(month__in=months)
         return qs
 
     def perform_create(self, serializer):
@@ -48,7 +68,9 @@ class ProjecaoDiaViewSet(viewsets.ModelViewSet):
         qs = ProjecaoDia.objects.filter(user=self.request.user)
         month = self.request.query_params.get('month')
         if month:
-            qs = qs.filter(month=month)
+            _, months = get_period_info(month)
+            if months:
+                qs = qs.filter(month__in=months)
         return qs
 
     def perform_create(self, serializer):
@@ -86,27 +108,30 @@ class ProjecaoDiaViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='capital-atual')
     def capital_atual(self, request):
         """
-        Retorna o capital_final do último dia realizado do mês,
+        Retorna o capital_final do último dia realizado do período,
         ou a banca_inicial se não houver nenhum dia realizado.
         """
         month = request.query_params.get('month')
         if not month:
             return Response({'error': 'month é obrigatório'}, status=400)
 
-        # Último dia com capital_final calculado
+        _, months = get_period_info(month)
+
+        # Último dia com capital_final calculado no período
         ultimo_dia = (
             ProjecaoDia.objects
-            .filter(user=request.user, month=month, capital_final__isnull=False)
-            .order_by('-dia')
+            .filter(user=request.user, month__in=months, capital_final__isnull=False)
+            .order_by('-month', '-dia')
             .first()
         )
 
         if ultimo_dia:
             capital_final = ultimo_dia.capital_final
         else:
-            # Fallback: retorna banca_inicial do config do mês
+            # Fallback: retorna banca_inicial do config do mês atual
+            current_month = f"{date.today().year}-{date.today().month:02d}"
             try:
-                config = PlanilhaConfig.objects.get(user=request.user, month=month)
+                config = PlanilhaConfig.objects.get(user=request.user, month=current_month)
                 capital_final = config.banca_inicial
             except PlanilhaConfig.DoesNotExist:
                 capital_final = Decimal('0')
@@ -126,7 +151,11 @@ class OperacaoViewSet(viewsets.ModelViewSet):
         qs = Operacao.objects.filter(user=self.request.user)
         month = self.request.query_params.get('month')
         if month:
-            qs = qs.filter(month=month)
+            start, months = get_period_info(month)
+            if start:
+                qs = qs.filter(data_cal__gte=start)
+            else:
+                qs = qs.filter(month__in=months)
         return qs
 
     def perform_create(self, serializer):
@@ -216,7 +245,9 @@ class DiarioEntryViewSet(viewsets.ModelViewSet):
         qs = DiarioEntry.objects.filter(user=self.request.user)
         month = self.request.query_params.get('month')
         if month:
-            qs = qs.filter(month=month)
+            start, _ = get_period_info(month)
+            if start:
+                qs = qs.filter(created_at__date__gte=start)
         return qs
 
     def perform_create(self, serializer):

@@ -57,7 +57,7 @@ const API = {
     };
   },
   async get(url) {
-    const r = await fetch(url, { credentials: 'same-origin' });
+    const r = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
     if (!r.ok) throw new Error(`GET ${url} → ${r.status}`);
     return r.json();
   },
@@ -266,8 +266,16 @@ function renderDashboard() {
   setEl('totalDiasDisp',   dias);
   setEl('diasPercorridos', diasFeitos);
 
-  if (STATE.capital_atual?.capital_final !== undefined) {
-    setEl('capitalAtualFromDB', fmt.brl(STATE.capital_atual.capital_final));
+  const lastCapitalFinal = STATE.projecao
+    .filter(p => p.capital_final !== null && p.capital_final !== undefined)
+    .slice(-1)[0]?.capital_final;
+
+  const dashboardCapital = lastCapitalFinal !== undefined && lastCapitalFinal !== null
+    ? lastCapitalFinal
+    : STATE.capital_atual?.capital_final;
+
+  if (dashboardCapital !== undefined && dashboardCapital !== null) {
+    setEl('capitalAtualDisp', fmt.brl(dashboardCapital));
   }
 
   setEl('lucroLiquidoDash', fmt.brl(calc.lucroLiquido()));
@@ -1885,6 +1893,35 @@ function bindEvents() {
   // Inicializa com valores padrão
   gestaoAtualizarAtivoDisplay();
   gestaoCalcularContratos();
+
+  // ─── Refresh ao voltar para a aba ou ao focar a janela ─────
+  const shouldRefreshDashboard = () => {
+    const dashboardActive = document.getElementById('tab-dashboard')?.classList.contains('active');
+    const sidebarDashboard = document.querySelector('.sidebar-nav-item.active')?.dataset.tab === 'dashboard';
+    return dashboardActive || sidebarDashboard;
+  };
+
+  const refreshDashboardIfNeeded = () => {
+    if (shouldRefreshDashboard()) {
+      loadAll(STATE.month);
+    }
+  };
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      refreshDashboardIfNeeded();
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    refreshDashboardIfNeeded();
+  });
+
+  window.addEventListener('pageshow', event => {
+    if (event.persisted) {
+      refreshDashboardIfNeeded();
+    }
+  });
 }
 
   // ─── INIT ─────────────────────────────────────────
@@ -1892,7 +1929,8 @@ function bindEvents() {
     setCurrentDate();
     buildMonthSelector();  // STATE.month definido aqui
     bindEvents();
-    initSidebar();         // initSidebar chama switchTab → loadAll com mês correto
+    initSidebar();         // initSidebar chama switchTab, que pode chamar loadAll
+    loadAll(STATE.month);  // garante refresh do dashboard na carga inicial
   });
 
   function initSidebar() {

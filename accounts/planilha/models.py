@@ -186,17 +186,30 @@ def _sincronizar_projecao(user, month, dia):
     operacoes_dia = Operacao.objects.filter(
         user=user, month=month, dia=dia
     ).exclude(status='ZERADA')  # Exclui operações zeradas
-    total_realizado = sum(op.resultado or Decimal('0') for op in operacoes_dia)
 
-    projecao_dia, _ = ProjecaoDia.objects.get_or_create(
-        user=user, month=month, dia=dia
-    )
+    try:
+      projecao_dia = ProjecaoDia.objects.get(user=user, month=month, dia=dia)
+    except ProjecaoDia.DoesNotExist:
+      projecao_dia = None
 
-    # Atualiza realizado sem disparar signal (update direto no banco)
-    ProjecaoDia.objects.filter(pk=projecao_dia.pk).update(realizado=total_realizado)
-
-    # Recarrega para ter o valor atualizado no objeto
-    projecao_dia.refresh_from_db()
+    if operacoes_dia.exists():
+      total_realizado = sum(op.resultado or Decimal('0') for op in operacoes_dia)
+      if not projecao_dia:
+        projecao_dia, _ = ProjecaoDia.objects.get_or_create(
+            user=user, month=month, dia=dia
+        )
+      ProjecaoDia.objects.filter(pk=projecao_dia.pk).update(
+        realizado=total_realizado,
+        capital_final=None,
+      )
+    else:
+      if projecao_dia:
+        ProjecaoDia.objects.filter(pk=projecao_dia.pk).update(
+          realizado=None,
+          capital_final=None,
+        )
+      else:
+        return
 
     # Recalcula cadeia a partir deste dia
     recalcular_cadeia(user, month, dia)
