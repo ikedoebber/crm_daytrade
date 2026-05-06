@@ -126,8 +126,8 @@ class Operacao(models.Model):
 
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, default='COMPRA')
     ativo = models.CharField(max_length=10, choices=ATIVO_CHOICES, default='WIN')
-    entrada = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    saida = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    entrada = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+    saida = models.DecimalField(max_digits=12, decimal_places=4, default=0)
     contratos = models.IntegerField(default=1)
     valor_ponto = models.DecimalField(max_digits=10, decimal_places=2, default=0.20)
     pontos = models.DecimalField(max_digits=10, decimal_places=2, default=0)
