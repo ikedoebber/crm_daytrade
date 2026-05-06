@@ -203,7 +203,7 @@ class OperacaoViewSet(viewsets.ModelViewSet):
 
             if erros:
                 # Rollback automático pelo transaction.atomic()
-                raise ValueError(f"Erros de validação: {erros}")
+                return Response({'errors': erros}, status=400)
 
             # bulk_create sem disparar signals a cada insert
             if ops_para_criar:

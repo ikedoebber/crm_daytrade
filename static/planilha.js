@@ -67,8 +67,18 @@ const API = {
       body: JSON.stringify(data), credentials: 'same-origin',
     });
     if (!r.ok) {
-      const e = await r.json().catch(() => ({}));
-      throw new Error(JSON.stringify(e));
+      const text = await r.text();
+      let body = {};
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = text || {};
+      }
+      throw new Error(JSON.stringify({
+        status: r.status,
+        statusText: r.statusText,
+        body,
+      }));
     }
     return r.json();
   },
@@ -951,10 +961,11 @@ function renderCalendar() {
   // ─── AUTO-CÁLCULO DE LINHA DE OPERAÇÃO ─────────────
   function autoCalcRow(tr) {
     const g = name => tr.querySelector(`[name="${name}"]`)?.value;
+    const parseNum = value => parseFloat((value || '').toString().replace(',', '.'));
 
-    const entrada   = parseFloat(g('entrada'))   || 0;
-    const saida     = parseFloat(g('saida'))     || 0;
-    const contratos = parseFloat(g('contratos')) || 1;
+    const entrada   = parseNum(g('entrada'))   || 0;
+    const saida     = parseNum(g('saida'))     || 0;
+    const contratos = parseNum(g('contratos')) || 1;
     const ativo     = g('ativo');
     const tipo      = g('tipo');  // FIX: lê o tipo (COMPRA/VENDA) para cálculo correto
 
@@ -1015,25 +1026,32 @@ function renderCalendar() {
   function collectOpsFromTable() {
     return Array.from(document.querySelectorAll('#opsDetalhadaBody tr')).map(tr => {
       const g = name => tr.querySelector(`[name="${name}"]`)?.value;
-      // FIX: contratos mínimo 1 (nunca 0), mas preserva o valor digitado se >= 1
       const contratosRaw = parseInt(g('contratos'));
       const diaVal       = parseInt(g('dia')) || 1;
-
-      // ─── FIX: coleta data_cal do DOM — preserva o valor editado pelo usuário ───
-      const dataCal = g('data_cal') || `${STATE.month}-${String(diaVal).padStart(2,'0')}`;
+      const dataCal      = g('data_cal') || `${STATE.month}-${String(diaVal).padStart(2,'0')}`;
+      const parseNum     = value => parseFloat((value || '').toString().replace(',', '.'));
+      const entrada      = parseNum(g('entrada')) || 0;
+      const saida        = parseNum(g('saida'))   || 0;
+      const valorPonto   = parseNum(g('valor_ponto')) || 0;
+      const pontos       = parseNum(g('pontos'))      || 0;
+      const resultado    = parseNum(g('resultado'))   || 0;
+      const statusText   = tr.querySelector('.status-badge')?.textContent.trim();
+      const status       = ['GAIN', 'LOSS', 'ZERADA'].includes(statusText)
+                              ? statusText
+                              : resultado > 0 ? 'GAIN' : resultado < 0 ? 'LOSS' : 'ZERADA';
 
       return {
         dia:         diaVal,
         data_cal:    dataCal,
         tipo:        g('tipo')                    || 'COMPRA',
         ativo:       g('ativo')                   || 'WIN',
-        entrada:     parseFloat(g('entrada'))     || 0,
-        saida:       parseFloat(g('saida'))       || 0,
+        entrada:     entrada,
+        saida:       saida,
         contratos:   isNaN(contratosRaw) || contratosRaw < 1 ? 1 : contratosRaw,
-        valor_ponto: parseFloat(g('valor_ponto')) || 0,
-        pontos:      parseFloat(g('pontos'))      || 0,
-        resultado:   parseFloat(g('resultado'))   || 0,
-        status: tr.querySelector('.status-badge')?.textContent.trim() || 'GAIN',
+        valor_ponto: valorPonto,
+        pontos:      pontos,
+        resultado:   resultado,
+        status:      status,
         month:       STATE.month,
       };
     });
