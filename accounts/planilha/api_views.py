@@ -49,7 +49,10 @@ class PlanilhaConfigViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='upsert')
     def upsert(self, request):
         """Cria ou atualiza o config do mês."""
-        month = request.data.get('month')
+        month = request.data.get('month') or request.query_params.get('month')
+        if month is not None:
+            month = str(month).strip()
+
         if not month:
             return Response({'error': 'month é obrigatório'}, status=400)
 

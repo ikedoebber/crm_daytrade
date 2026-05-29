@@ -607,6 +607,84 @@ nav {
   transition: border-color .2s;
 }
 
+.card.card-compact {
+  padding: 14px 16px;
+}
+
+.card.card-compact .card-label {
+  font-size: 10px;
+  color: var(--t-muted);
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+
+.card.card-compact .card-value {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--t-primary);
+  line-height: 1.1;
+  margin-bottom: 4px;
+  letter-spacing: -.4px;
+}
+
+.card.card-compact .card-sub {
+  font-size: 10px;
+  color: var(--t-muted);
+  line-height: 1.4;
+}
+
+.card.card-compact .card-stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0 14px;
+  align-items: end;
+}
+.card.card-compact .card-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.card.card-compact .card-stat .card-value {
+  font-size: 20px;
+}
+.card.card-compact .card-stat .card-sub {
+  font-size: 10px;
+  opacity: 0.8;
+}
+.card.card-compact .card-stat-meta input {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.card.card-compact .card-value-input {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--t-primary);
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -.4px;
+  line-height: 1.1;
+  outline: none;
+  text-align: left;
+}
+
+.card.card-compact .card-value-input::placeholder {
+  color: var(--t-muted);
+}
+
+.card.card-compact .card-value-input:focus {
+  box-shadow: none;
+}
+
 .card::before {
   content: '';
   position: absolute;

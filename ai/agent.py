@@ -51,12 +51,13 @@ class SGEAgent:
             logger.error(f"Erro ao codificar imagem: {e}", exc_info=True)
             return None
 
-    def invoke(self, image_file=None):
+    def invoke(self, image_file=None, question=None):
         """
-        Invoca o agente com análise opcional de imagem
+        Invoca o agente com análise opcional de imagem e pergunta adicional
         
         Args:
             image_file: arquivo de imagem (opcional)
+            question: pergunta do usuário (opcional)
         """
         try:
             messages = [
@@ -66,16 +67,24 @@ class SGEAgent:
                 },
             ]
 
-            # Prepara conteúdo do usuário com ou sem imagem
+            # Prepara conteúdo do usuário com foco em pergunta ou análise
             user_content = []
-            
-            # Adiciona texto com dados
+            question_text = question.strip() if question else ''
+
+            if question_text:
+                base_text = prompts.QUESTION_PROMPT.replace('{{question}}', question_text)
+                base_text += f"\n\nDados disponíveis (use apenas se úteis):\n{self.__get_data()}"
+                if not image_file:
+                    base_text += f"\n\n{prompts.NO_IMAGE_PROMPT}"
+            else:
+                base_text = prompts.USER_PROMPT.replace('{{data}}', self.__get_data())
+
             user_content.append({
                 'type': 'text',
-                'text': prompts.USER_PROMPT.replace('{{data}}', self.__get_data())
+                'text': base_text
             })
 
-            # Adiciona imagem se fornecida
+            # Adiciona instrução de análise de imagem e imagem se fornecida
             if image_file:
                 logger.info(f"Processando imagem: {image_file.name}")
                 image_base64 = self.__encode_image_to_base64(image_file)

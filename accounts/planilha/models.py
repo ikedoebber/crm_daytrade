@@ -25,6 +25,8 @@ class PlanilhaConfig(models.Model):
     plano_start = models.CharField(max_length=20, blank=True, default='')
     plano_capital = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     plano_meta = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    plano_meta_semanal_win = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    plano_meta_semanal_wdo = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     plano_ativos = models.CharField(max_length=100, blank=True, default='WIN, WDO')
     plano_maxentradas = models.IntegerField(default=5)
     plano_stop = models.DecimalField(max_digits=12, decimal_places=2, default=0)

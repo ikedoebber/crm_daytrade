@@ -69,8 +69,8 @@ function escapeHtml(text) {
 }
 
 // ─── INVOCAR AGENTE DE IA ──────────────────────────
-async function invokeAgent() {
-  const btn = document.getElementById('invokeAgentBtn');
+async function invokeAgent(action = 'analysis') {
+  const btn = document.getElementById(action === 'question' ? 'askAgentBtn' : 'invokeAgentBtn');
   const responseContainer = document.getElementById('agentResponse');
   const status = document.getElementById('agentStatus');
   const timestamp = document.getElementById('agentTimestamp');
@@ -85,7 +85,8 @@ async function invokeAgent() {
   btn.disabled = true;
   btn.style.opacity = '0.6';
 
-  status.textContent = '⏳ Gerando análise...';
+  const isQuestion = action === 'question';
+  status.textContent = isQuestion ? '⏳ Respondendo pergunta...' : '⏳ Gerando análise...';
   status.className = 'save-status loading';
   responseContainer.innerHTML = '<p style="color: var(--t-muted);">Aguardando resposta...</p>';
   timestamp.textContent = '';
@@ -102,6 +103,17 @@ async function invokeAgent() {
     // 📎 envia imagem se existir
     if (imageInput && imageInput.files.length > 0) {
       formData.append('image', imageInput.files[0]);
+    }
+
+    // 📝 envia pergunta adicional se existir
+    const questionInput = document.getElementById('agentQuestionInput');
+    const question = questionInput?.value?.trim();
+    if (isQuestion && !question) {
+      alert('Digite uma pergunta antes de enviar.');
+      throw new Error('Pergunta vazia para modo question');
+    }
+    if (question) {
+      formData.append('question', question);
     }
 
     // ⏱ timeout de segurança
@@ -145,18 +157,7 @@ async function invokeAgent() {
       const date = new Date(data.created_at);
       timestamp.textContent = `Gerado em ${date.toLocaleString('pt-BR')}`;
 
-      status.textContent = '✓ Análise concluída';
-      status.className = 'save-status ok';
-
-      IA_STATE.lastResult = result;
-      IA_STATE.lastTimestamp = data.created_at;
-
-      // limpa imagem
-      if (imageInput) {
-        imageInput.value = '';
-        updateImagePreview();
-      }
-
+      status.textContent = isQuestion ? '✓ Pergunta respondida' : '✓ Análise concluída';
     } else {
       throw new Error(data.error || 'Erro desconhecido da API');
     }
@@ -308,8 +309,11 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('✓ marked.js carregado e pronto');
   });
   
-  const btn = document.getElementById('invokeAgentBtn');
-  if (btn) btn.addEventListener('click', invokeAgent);
+  const analysisBtn = document.getElementById('invokeAgentBtn');
+  if (analysisBtn) analysisBtn.addEventListener('click', () => invokeAgent('analysis'));
+
+  const askBtn = document.getElementById('askAgentBtn');
+  if (askBtn) askBtn.addEventListener('click', () => invokeAgent('question'));
 
   const input = document.getElementById('imageUploadInput');
   if (input) input.addEventListener('change', updateImagePreview);
@@ -317,7 +321,6 @@ document.addEventListener('DOMContentLoaded', () => {
   restoreLastAnalysis();
 });
 
-// ─── MODAL PARA ANÁLISES SALVAS ──────────────────
 function openAnalysisModal(title, content, imageUrl) {
   const modal = document.getElementById('analysisModal');
   const modalTitle = document.getElementById('modalTitle');

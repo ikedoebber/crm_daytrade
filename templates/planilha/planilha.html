@@ -238,11 +238,23 @@ window.addEventListener('load', () => {
     </p>
 
     <div class="card">
-      <div style="display:flex;gap:12px;margin-bottom:16px;">
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
         <button type="button" id="invokeAgentBtn" class="btn-save">⚡ Gerar Análise IA</button>
         <span id="agentStatus" class="save-status"></span>
       </div>
-      
+
+      <div class="card" style="margin-bottom:16px;padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+          <div style="min-width:180px;">
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px;">💬 Pergunte algo sobre o tema</div>
+            <div style="font-size:11px;color:var(--t-dim);line-height:1.5;">Use este campo para fazer uma pergunta direta sobre trading, desempenho ou insights do app.</div>
+          </div>
+          <button type="button" id="askAgentBtn" class="btn-save">Perguntar IA</button>
+        </div>
+        <textarea id="agentQuestionInput" class="cfg-input" rows="4" placeholder="Faça uma pergunta sobre a estratégia, resultados, risco ou outro tema do app..."></textarea>
+        <p style="font-size:10px;color:var(--t-dim);margin:10px 0 0 0;">Dica: a pergunta pode ser sobre o tema do app, não precisa mencionar a foto.</p>
+      </div>
+
       <!-- Upload de Foto para Análise -->
       <div style="margin-bottom:16px;padding:12px;background:rgba(200,150,255,.1);border:1px dashed var(--border);border-radius:6px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
@@ -254,7 +266,7 @@ window.addEventListener('load', () => {
         <div id="imagePreviewContainer" style="margin-top:10px;"></div>
         <p style="font-size:10px;color:var(--muted);margin:8px 0 0 0;">💡 Dica: Envie uma foto de um gráfico para análise técnica mais detalhada. A IA analisará junto com seus dados estruturados.</p>
       </div>
-      
+
       <div style="position:relative;min-height:300px;">
         <div id="agentResponse" 
              class="markdown-content"
@@ -373,6 +385,45 @@ window.addEventListener('load', () => {
     </div>
     <div class="sep"></div>
 
+    <div class="section-title">Pontos por Período</div>
+    <div class="grid-4">
+      <div class="card card-compact">
+        <div class="card-label">WIN Hoje</div>
+        <div class="card-value" id="pontDiaWin">0</div>
+      </div>
+      <div class="card card-compact">
+        <div class="card-label">WIN Semana</div>
+        <div class="card-value" id="pontSemanaWin">0</div>
+      </div>
+      <div class="card card-compact">
+        <div class="card-label">WIN Mês</div>
+        <div class="card-value" id="pontMesWin">0</div>
+      </div>
+      <div class="card card-compact">
+        <div class="card-label">Meta WIN</div>
+        <input id="cfg_plano_meta_semanal_win" type="number" step="1" inputmode="numeric" class="cfg-input card-value-input" placeholder="600">
+      </div>
+    </div>
+    <div class="grid-4">
+      <div class="card card-compact">
+        <div class="card-label">WDO Hoje</div>
+        <div class="card-value" id="pontDiaWdo">0</div>
+      </div>
+      <div class="card card-compact">
+        <div class="card-label">WDO Semana</div>
+        <div class="card-value" id="pontSemanaWdo">0</div>
+      </div>
+      <div class="card card-compact">
+        <div class="card-label">WDO Mês</div>
+        <div class="card-value" id="pontMesWdo">0</div>
+      </div>
+      <div class="card card-compact">
+        <div class="card-label">Meta WDO</div>
+        <input id="cfg_plano_meta_semanal_wdo" type="number" step="1" inputmode="numeric" class="cfg-input card-value-input" placeholder="400">
+      </div>
+    </div>
+    <div class="sep"></div>
+
     <div class="section-title">Registro por Dia (Contagem)</div>
     <div class="table-wrap">
       <table id="tabelaOps">
@@ -471,7 +522,10 @@ window.addEventListener('load', () => {
       <div class="card"><div class="card-label">Maior Op. Perdedora</div><div class="card-value val-negative" id="maiorOpPerdedora">—</div></div>
       <div class="card"><div class="card-label">Maior Seq. Vencedora</div><div class="card-value" id="maiorSequenciaVencedora">—</div></div>
       <div class="card"><div class="card-label">Maior Seq. Perdedora</div><div class="card-value val-negative" id="maiorSequenciaPerdedora">—</div></div>
-      <div class="card"><div class="card-label">Máximo de Contratos</div><div class="card-value val-positive" id="maxAcoesContratos">—</div></div>
+      <div class="card">
+        <div class="card-label">Máximo de Contratos</div>
+        <input id="cfg_plano_maxentradas_report" type="number" class="cfg-input" placeholder="5" style="margin-top:12px;width:100%;box-sizing:border-box;">
+      </div>
     </div>
 
     <div class="section-title">Análise de Drawdown</div>

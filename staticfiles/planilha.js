@@ -34,6 +34,8 @@ const REQUEST_GUARD = {
   }
 };
 
+let _debOpsRender = null;
+
 // ─── DEFAULTS DE CONFIGURAÇÃO ────────────────────
 const CONFIG_DEFAULTS = {
   banca_inicial:                1,
@@ -44,6 +46,8 @@ const CONFIG_DEFAULTS = {
   plano_perda_diaria_aprovacao: 825,
   plano_capital:                100,
   plano_meta:                   600,
+  plano_meta_semanal_win:       0,
+  plano_meta_semanal_wdo:       0,
   plano_maxentradas:            5,
   plano_stop:                   600,
 };
@@ -67,8 +71,18 @@ const API = {
       body: JSON.stringify(data), credentials: 'same-origin',
     });
     if (!r.ok) {
-      const e = await r.json().catch(() => ({}));
-      throw new Error(JSON.stringify(e));
+      const text = await r.text();
+      let body = {};
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = text || {};
+      }
+      throw new Error(JSON.stringify({
+        status: r.status,
+        statusText: r.statusText,
+        body,
+      }));
     }
     return r.json();
   },
@@ -197,20 +211,33 @@ async function postSaveRender() {
 // ─── CONFIG INPUTS ────────────────────────────────
 function fillConfigInputs() {
   const c = STATE.config;
+  const integerFields = new Set(['plano_meta_semanal_win', 'plano_meta_semanal_wdo', 'dias_uteis', 'plano_maxentradas']);
   const fields = [
     'banca_inicial', 'objetivo_diario', 'dias_uteis',
     'plano_meta_aprovacao', 'plano_perda_max_total', 'plano_perda_diaria_aprovacao',
     'plano_risco1', 'plano_start', 'plano_capital', 'plano_meta',
+    'plano_meta_semanal_win', 'plano_meta_semanal_wdo',
     'plano_ativos', 'plano_maxentradas', 'plano_stop',
   ];
   fields.forEach(f => {
     const el = document.getElementById('cfg_' + f);
     if (!el) return;
     const val = c[f];
-    // Aceita 0 como valor válido — apenas undefined/null/'' caem no default
     const hasValue = val !== undefined && val !== null && val !== '';
-    el.value = hasValue ? val : (CONFIG_DEFAULTS[f] ?? '');
+    if (hasValue) {
+      if (integerFields.has(f)) {
+        el.value = Number.isFinite(Number(val)) ? String(Math.trunc(Number(val))) : val;
+      } else {
+        el.value = val;
+      }
+    } else {
+      el.value = CONFIG_DEFAULTS[f] ?? '';
+    }
   });
+  const reportInput = document.getElementById('cfg_plano_maxentradas_report');
+  if (reportInput) {
+    reportInput.value = document.getElementById('cfg_plano_maxentradas')?.value || '';
+  }
 }
 
 function getConfigFromInputs() {
@@ -224,7 +251,7 @@ function getConfigFromInputs() {
 
   // FIX: usa nullish coalescing para preservar 0 como valor válido em todos os campos numéricos
   const safeNum = (val, def) => (isNaN(val) ? def : val);
-  const safeInt = (val, def) => (isNaN(val) ? def : val);
+  const safeInt = (val, def) => Number.isInteger(val) ? val : (isNaN(val) ? def : Math.trunc(val));
 
   return {
     month:                       STATE.month,
@@ -238,10 +265,56 @@ function getConfigFromInputs() {
     plano_start:                 s('cfg_plano_start'),
     plano_capital:               safeNum(n('cfg_plano_capital'),                0),
     plano_meta:                  safeNum(n('cfg_plano_meta'),                   0),
+    plano_meta_semanal_win:      safeInt(ni('cfg_plano_meta_semanal_win'),      0),
+    plano_meta_semanal_wdo:      safeInt(ni('cfg_plano_meta_semanal_wdo'),      0),
     plano_ativos:                s('cfg_plano_ativos'),
     plano_maxentradas:           safeInt(ni('cfg_plano_maxentradas'),           d.plano_maxentradas),
     plano_stop:                  safeNum(n('cfg_plano_stop'),                   0),
   };
+}
+
+function parseOperationDate(op) {
+  if (op.data_cal) {
+    const isoString = String(op.data_cal).trim();
+    const isoMatch = isoString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      const year = parseInt(isoMatch[1], 10);
+      const month = parseInt(isoMatch[2], 10) - 1;
+      const day = parseInt(isoMatch[3], 10);
+      const localDate = new Date(year, month, day);
+      if (!isNaN(localDate)) return localDate;
+    }
+
+    const parsed = new Date(isoString);
+    if (!isNaN(parsed)) return parsed;
+  }
+
+  if (op.dia !== undefined && op.dia !== null && STATE.month) {
+    const [year, month] = STATE.month.split('-').map(v => parseInt(v, 10));
+    if (!isNaN(year) && !isNaN(month)) {
+      const fallback = new Date(year, month - 1, op.dia);
+      if (!isNaN(fallback)) return fallback;
+    }
+  }
+
+  return null;
+}
+
+function formatPoints(value) {
+  if (value === null || value === undefined || isNaN(value)) return '0';
+  const amount = parseFloat(value);
+  const formatted = amount.toFixed(2);
+  return formatted.endsWith('.00') ? formatted.slice(0, -3) : formatted;
+}
+
+function isSameDay(dateA, dateB) {
+  return dateA.getFullYear() === dateB.getFullYear() &&
+         dateA.getMonth() === dateB.getMonth() &&
+         dateA.getDate() === dateB.getDate();
+}
+
+function isWithinWeek(date, weekStart, weekEnd) {
+  return date >= weekStart && date <= weekEnd;
 }
 
 // ─── DASHBOARD ────────────────────────────────────
@@ -322,6 +395,52 @@ function renderDashboard() {
     setEl('maxOpsPorDia', 0);
     setEl('mediaOpsPorDia', '—');
   }
+
+  const now = new Date();
+  const currentDayStart = new Date(now);
+  currentDayStart.setHours(0, 0, 0, 0);
+  const weekStart = new Date(currentDayStart);
+  weekStart.setDate(currentDayStart.getDate() - ((currentDayStart.getDay() + 6) % 7));
+  weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  const selectedMonthParts = (STATE.month || '').split('-').map(v => parseInt(v, 10));
+  const selectedYear = selectedMonthParts[0] || now.getFullYear();
+  const selectedMonth = selectedMonthParts[1] ? selectedMonthParts[1] - 1 : now.getMonth();
+
+  const totals = {
+    win: { day: 0, week: 0, month: 0 },
+    wdo: { day: 0, week: 0, month: 0 },
+  };
+
+  STATE.operacoes.forEach(op => {
+    const opDate = parseOperationDate(op);
+    if (!opDate) return;
+
+    const pontos = parseFloat(op.pontos) || 0;
+    const ativo = op.ativo === 'WDO' ? 'wdo' : 'win';
+
+    if (opDate.getFullYear() === selectedYear && opDate.getMonth() === selectedMonth) {
+      totals[ativo].month += pontos;
+    }
+
+    if (isSameDay(opDate, now) && selectedYear === now.getFullYear() && selectedMonth === now.getMonth()) {
+      totals[ativo].day += pontos;
+    }
+
+    if (isWithinWeek(opDate, weekStart, weekEnd)) {
+      totals[ativo].week += pontos;
+    }
+  });
+
+  setEl('pontDiaWin', formatPoints(totals.win.day));
+  setEl('pontSemanaWin', formatPoints(totals.win.week));
+  setEl('pontMesWin', formatPoints(totals.win.month));
+  setEl('pontDiaWdo', formatPoints(totals.wdo.day));
+  setEl('pontSemanaWdo', formatPoints(totals.wdo.week));
+  setEl('pontMesWdo', formatPoints(totals.wdo.month));
 
   setEl('dashMetaAprovacao',        fmt.brl(c.plano_meta_aprovacao));
   setEl('dashPerdaMaxTotal',        fmt.brl(c.plano_perda_max_total));
@@ -940,7 +1059,7 @@ function renderCalendar() {
     `;
 
     const autoCalcTriggers = tr.querySelectorAll(
-        'input[name="entrada"], input[name="saida"], input[name="contratos"], input[name="valor_ponto"], select[name="ativo"], select[name="tipo"]'
+        'input[name="dia"], input[name="data_cal"], input[name="entrada"], input[name="saida"], input[name="contratos"], input[name="valor_ponto"], input[name="pontos"], input[name="resultado"], select[name="ativo"], select[name="tipo"]'
     );
     autoCalcTriggers.forEach(inp => inp.addEventListener('change', () => autoCalcRow(tr)));
     tr.querySelector('.ops-del-btn').addEventListener('click', () => deleteOpsRow(idx));
@@ -948,15 +1067,18 @@ function renderCalendar() {
     return tr;
   }
 
-  // ─── AUTO-CÁLCULO DE LINHA DE OPERAÇÃO ─────────────
-  function autoCalcRow(tr) {
+  function syncOpRow(tr) {
     const g = name => tr.querySelector(`[name="${name}"]`)?.value;
+    const parseNum = value => parseFloat((value || '').toString().replace(',', '.'));
+    const idx = parseInt(tr.dataset.idx, 10);
 
-    const entrada   = parseFloat(g('entrada'))   || 0;
-    const saida     = parseFloat(g('saida'))     || 0;
-    const contratos = parseFloat(g('contratos')) || 1;
-    const ativo     = g('ativo');
-    const tipo      = g('tipo');  // FIX: lê o tipo (COMPRA/VENDA) para cálculo correto
+    const diaVal = parseInt(g('dia'), 10) || 1;
+    const dataCal = g('data_cal') || `${STATE.month}-${String(diaVal).padStart(2, '0')}`;
+    const tipo = g('tipo') || 'COMPRA';
+    const ativo = g('ativo') || 'WIN';
+    const entrada = parseNum(g('entrada')) || 0;
+    const saida = parseNum(g('saida')) || 0;
+    const contratos = parseNum(g('contratos')) || 1;
 
     const valorPontoMap = { WIN: 0.20, WDO: 10.00, BIT: 0.01 };
     const vpEl = tr.querySelector('[name="valor_ponto"]');
@@ -965,29 +1087,64 @@ function renderCalendar() {
       vpEl.dataset.auto = 'true';
     }
     const vp = parseFloat(vpEl.value) || 0;
-    const diffBruto = saida - entrada;
-    const diff      = tipo === 'VENDA' ? -diffBruto : diffBruto;
-    const pontos    = ativo === 'WDO' ? diff * 1000 : diff;
-    const resultado = pontos * contratos * vp;
 
-    const pontosEl    = tr.querySelector('[name="pontos"]');
+    const pontosEl = tr.querySelector('[name="pontos"]');
     const resultadoEl = tr.querySelector('[name="resultado"]');
+    let pontos = parseNum(pontosEl.value) || 0;
+    let resultado = parseNum(resultadoEl.value) || 0;
 
-    if (entrada && saida) {
-      pontosEl.value    = pontos.toFixed(2);
+    const hasEntryAndExit = g('entrada') !== '' && g('saida') !== '';
+    if (hasEntryAndExit) {
+      const diffBruto = saida - entrada;
+      const diff = tipo === 'VENDA' ? -diffBruto : diffBruto;
+      pontos = ativo === 'WDO' ? diff * 1000 : diff;
+      resultado = pontos * contratos * vp;
+      pontosEl.value = pontos.toFixed(2);
       resultadoEl.value = resultado.toFixed(2);
-      resultadoEl.closest('td').className = resultado >= 0 ? 'val-positive' : 'val-negative';
-
-      // FIX: atualiza td de pontos também
-      pontosEl.closest('td').className = pontos >= 0 ? 'val-positive' : 'val-negative';
-
-      const newStatus = resultado > 0 ? 'GAIN' : resultado < 0 ? 'LOSS' : 'ZERADA';
-      const statusSpan = tr.querySelector('.status-badge');
-      if (statusSpan) {
-        statusSpan.textContent = newStatus;
-        statusSpan.className = 'status-badge ' + (newStatus === 'GAIN' ? 'gain' : newStatus === 'LOSS' ? 'loss' : 'zerada');
-      }
     }
+
+    const pontosClass = pontos >= 0 ? 'val-positive' : 'val-negative';
+    const resultadoClass = resultado >= 0 ? 'val-positive' : 'val-negative';
+    pontosEl.closest('td').className = pontosClass;
+    resultadoEl.closest('td').className = resultadoClass;
+
+    const status = resultado > 0 ? 'GAIN' : resultado < 0 ? 'LOSS' : 'ZERADA';
+    const statusSpan = tr.querySelector('.status-badge');
+    if (statusSpan) {
+      statusSpan.textContent = status;
+      statusSpan.className = 'status-badge ' + (status === 'GAIN' ? 'gain' : status === 'LOSS' ? 'loss' : 'zerada');
+    }
+
+    const updatedOp = {
+      ...STATE.operacoes[idx],
+      dia: diaVal,
+      data_cal: dataCal,
+      tipo,
+      ativo,
+      entrada,
+      saida,
+      contratos,
+      valor_ponto: vp,
+      pontos,
+      resultado,
+      status,
+      month: STATE.month,
+    };
+
+    if (!Number.isNaN(idx) && STATE.operacoes[idx]) {
+      STATE.operacoes[idx] = updatedOp;
+    }
+
+    return updatedOp;
+  }
+
+  // ─── AUTO-CÁLCULO DE LINHA DE OPERAÇÃO ─────────────
+  function autoCalcRow(tr) {
+    syncOpRow(tr);
+    renderDashboard();
+    if (_debOpsRender) clearTimeout(_debOpsRender);
+    _debOpsRender = setTimeout(renderCharts, 250);
+    atualizarCampos();
   }
 
   function deleteOpsRow(idx) {
@@ -1015,25 +1172,32 @@ function renderCalendar() {
   function collectOpsFromTable() {
     return Array.from(document.querySelectorAll('#opsDetalhadaBody tr')).map(tr => {
       const g = name => tr.querySelector(`[name="${name}"]`)?.value;
-      // FIX: contratos mínimo 1 (nunca 0), mas preserva o valor digitado se >= 1
       const contratosRaw = parseInt(g('contratos'));
       const diaVal       = parseInt(g('dia')) || 1;
-
-      // ─── FIX: coleta data_cal do DOM — preserva o valor editado pelo usuário ───
-      const dataCal = g('data_cal') || `${STATE.month}-${String(diaVal).padStart(2,'0')}`;
+      const dataCal      = g('data_cal') || `${STATE.month}-${String(diaVal).padStart(2,'0')}`;
+      const parseNum     = value => parseFloat((value || '').toString().replace(',', '.'));
+      const entrada      = parseNum(g('entrada')) || 0;
+      const saida        = parseNum(g('saida'))   || 0;
+      const valorPonto   = parseNum(g('valor_ponto')) || 0;
+      const pontos       = parseNum(g('pontos'))      || 0;
+      const resultado    = parseNum(g('resultado'))   || 0;
+      const statusText   = tr.querySelector('.status-badge')?.textContent.trim();
+      const status       = ['GAIN', 'LOSS', 'ZERADA'].includes(statusText)
+                              ? statusText
+                              : resultado > 0 ? 'GAIN' : resultado < 0 ? 'LOSS' : 'ZERADA';
 
       return {
         dia:         diaVal,
         data_cal:    dataCal,
         tipo:        g('tipo')                    || 'COMPRA',
         ativo:       g('ativo')                   || 'WIN',
-        entrada:     parseFloat(g('entrada'))     || 0,
-        saida:       parseFloat(g('saida'))       || 0,
+        entrada:     entrada,
+        saida:       saida,
         contratos:   isNaN(contratosRaw) || contratosRaw < 1 ? 1 : contratosRaw,
-        valor_ponto: parseFloat(g('valor_ponto')) || 0,
-        pontos:      parseFloat(g('pontos'))      || 0,
-        resultado:   parseFloat(g('resultado'))   || 0,
-        status: tr.querySelector('.status-badge')?.textContent.trim() || 'GAIN',
+        valor_ponto: valorPonto,
+        pontos:      pontos,
+        resultado:   resultado,
+        status:      status,
         month:       STATE.month,
       };
     });
@@ -1457,7 +1621,12 @@ function debounce(key, fn, delay = 500) {
 async function saveConfig(statusId) {
   const url = '/api/config/upsert/';
   
-  // 🚫 PROTEÇÃO: Se já há request em andamento, ignora
+  if (!STATE.month) {
+    console.warn('⚠️ Não há mês selecionado para salvar config.');
+    setStatus(statusId, 'Mês não selecionado', 'err');
+    return;
+  }
+
   if (!REQUEST_GUARD.canRequest(url)) {
     console.warn('⚠️ Salvar Config já em andamento, ignorando...');
     return;
@@ -1702,6 +1871,19 @@ function bindEvents() {
     });
   });
 
+  ['cfg_plano_meta_semanal_win','cfg_plano_meta_semanal_wdo'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    el.addEventListener('input', () => {
+      debounce('autoSaveMetaSemanal', () => saveConfig('savePlanoStatus'), 700);
+    });
+
+    el.addEventListener('change', () => {
+      saveConfig('savePlanoStatus');
+    });
+  });
+
   // ── Refresh em tempo real na tabela de projeção ──
   let _debProjecao = null;
   document.getElementById('projecaoBody')?.addEventListener('input', e => {
@@ -1737,6 +1919,19 @@ function bindEvents() {
   document.getElementById('addOpsDetalhadaRow')?.addEventListener('click', addNewOpsRow);
   document.getElementById('saveRelatoriosBtn')?.addEventListener('click', () => saveConfig('saveRelatoriosStatus'));
   document.getElementById('savePlanoBtn')?.addEventListener('click', savePlano);
+  const reportMaxContratosInput = document.getElementById('cfg_plano_maxentradas_report');
+  if (reportMaxContratosInput) {
+    reportMaxContratosInput.addEventListener('input', () => {
+      const mainInput = document.getElementById('cfg_plano_maxentradas');
+      if (mainInput) mainInput.value = reportMaxContratosInput.value;
+      debounce('autoSaveMaxContratosReport', () => saveConfig('savePlanoStatus'), 700);
+    });
+    reportMaxContratosInput.addEventListener('change', () => {
+      const mainInput = document.getElementById('cfg_plano_maxentradas');
+      if (mainInput) mainInput.value = reportMaxContratosInput.value;
+      saveConfig('savePlanoStatus');
+    });
+  }
   document.getElementById('saveDiarioButton')?.addEventListener('click', saveDiario);
   document.getElementById('plano_diario')?.addEventListener('keydown', e => {
     if (e.ctrlKey && e.key === 'Enter') saveDiario();

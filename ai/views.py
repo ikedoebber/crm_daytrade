@@ -18,9 +18,10 @@ def invoke_agent(request):
         
         # Extrai imagem se fornecida
         image_file = request.FILES.get('image', None)
+        question = request.POST.get('question', '').strip()
         
         # Invoca o agent e obtém resultado
-        result = agent.invoke(image_file=image_file)
+        result = agent.invoke(image_file=image_file, question=question)
         
         # Cria registro no banco com resultado e imagem
         from ai.models import AIResult

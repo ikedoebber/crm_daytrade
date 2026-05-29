@@ -58,6 +58,19 @@ Faça uma análise e dê sugestões com base nos dados atuais:
 Se possível, identifique entradas de alta probabilidade que poderiam gerar movimentos longos (acima de 1000 pontos).
 '''
 
+QUESTION_PROMPT = '''
+Responda diretamente à pergunta do usuário de forma clara e objetiva. Priorize a resposta à pergunta antes de qualquer análise adicional.
+
+Pergunta:
+"{{question}}"
+
+Use os dados abaixo apenas se forem úteis para responder. Se não forem úteis, responda com base no conhecimento técnico do tema.
+'''
+
+NO_IMAGE_PROMPT = '''
+Não há imagem anexada. Proceda apenas com base nos dados estruturados e não mencione gráficos visuais ou análise de imagem.
+'''
+
 IMAGE_ANALYSIS_PROMPT = '''
 Além da análise com os dados estruturados, analise também a imagem do gráfico enviada:
 - Confirme as estruturas visuais (topos, fundos, níveis de suporte/resistência)
