@@ -307,6 +307,25 @@ function formatPoints(value) {
   return formatted.endsWith('.00') ? formatted.slice(0, -3) : formatted;
 }
 
+function getOpPontos(op) {
+  const parseNum = value => parseFloat((value || '').toString().replace(',', '.'));
+  const pontosRaw = op?.pontos;
+  if (pontosRaw !== undefined && pontosRaw !== null && String(pontosRaw).trim() !== '') {
+    const parsed = parseNum(pontosRaw);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+
+  const entrada = parseNum(op?.entrada);
+  const saida = parseNum(op?.saida);
+  if (Number.isNaN(entrada) || Number.isNaN(saida)) return 0;
+
+  const tipo = String(op?.tipo || 'COMPRA').toUpperCase();
+  const ativo = String(op?.ativo || 'WIN').toUpperCase();
+  const diffBruto = saida - entrada;
+  const diff = tipo === 'VENDA' ? -diffBruto : diffBruto;
+  return ativo === 'WDO' ? diff * 1000 : diff;
+}
+
 function isSameDay(dateA, dateB) {
   return dateA.getFullYear() === dateB.getFullYear() &&
          dateA.getMonth() === dateB.getMonth() &&
@@ -370,8 +389,8 @@ function renderDashboard() {
   );
 
   // ── Pontos por ativo ──
-  setEl('totalPontosWIN', get.pontos_win());
-  setEl('totalPontosWDO', get.pontos_wdo());
+  setEl('totalPontosWIN', formatPoints(get.pontos_win()));
+  setEl('totalPontosWDO', formatPoints(get.pontos_wdo()));
 
   // ── Lucro Bruto ──
   setEl('totalLucroBruto', fmt.brl(calc.lucroBruto()));
@@ -419,8 +438,8 @@ function renderDashboard() {
     const opDate = parseOperationDate(op);
     if (!opDate) return;
 
-    const pontos = parseFloat(op.pontos) || 0;
-    const ativo = op.ativo === 'WDO' ? 'wdo' : 'win';
+    const pontos = getOpPontos(op);
+    const ativo = String(op.ativo || 'WIN').toUpperCase() === 'WDO' ? 'wdo' : 'win';
 
     if (opDate.getFullYear() === selectedYear && opDate.getMonth() === selectedMonth) {
       totals[ativo].month += pontos;

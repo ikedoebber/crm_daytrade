@@ -30,6 +30,16 @@ function _toNumber(v, fallback = 0) {
   return isNaN(n) || !isFinite(n) ? fallback : n;
 }
 
+function _calcPontosFromOp(op) {
+  const entrada = _toNumber(op.entrada);
+  const saida = _toNumber(op.saida);
+  const tipo = String(op.tipo || 'COMPRA').toUpperCase();
+  const ativo = String(op.ativo || 'WIN').toUpperCase();
+  const diffBruto = saida - entrada;
+  const diff = tipo === 'VENDA' ? -diffBruto : diffBruto;
+  return ativo === 'WDO' ? diff * 1000 : diff;
+}
+
 /**
  * Valida se é um número válido.
  */
@@ -198,15 +208,15 @@ const get = {
   pontos_win: () => {
     const ops = STATE.operacoes ?? [];
     return ops
-      .filter(o => o.ativo === 'WIN')
-      .reduce((sum, o) => sum + _toNumber(o.pontos), 0);
+      .filter(o => String(o.ativo || 'WIN').toUpperCase() === 'WIN')
+      .reduce((sum, o) => sum + _toNumber(o.pontos ?? _calcPontosFromOp(o)), 0);
   },
 
   pontos_wdo: () => {
     const ops = STATE.operacoes ?? [];
     return ops
-      .filter(o => o.ativo === 'WDO')
-      .reduce((sum, o) => sum + _toNumber(o.pontos), 0);
+      .filter(o => String(o.ativo || 'WDO').toUpperCase() === 'WDO')
+      .reduce((sum, o) => sum + _toNumber(o.pontos ?? _calcPontosFromOp(o)), 0);
   },
 
   // — Dias operados —
