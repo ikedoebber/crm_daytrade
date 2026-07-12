@@ -1870,6 +1870,22 @@ function setCurrentDate() {
   });
 }
 
+const ABERTURA_ASSET_NAMES = {
+  WIN: 'Índice',
+  WDO: 'Dólar',
+  BIT: 'Bitcoin',
+};
+
+function updateAberturaAssetInfo() {
+  const activeBtn = document.querySelector('.btn-tab-ativo.active');
+  const ticker = activeBtn?.dataset?.ativo || 'WIN';
+  const name = ABERTURA_ASSET_NAMES[ticker] || '';
+  const tickerEl = document.getElementById('aberturaAssetTicker');
+  const nameEl = document.getElementById('aberturaAssetName');
+  if (tickerEl) tickerEl.textContent = ticker;
+  if (nameEl) nameEl.textContent = name;
+}
+
 // ─── EVENTOS ──────────────────────────────────────
 function bindEvents() {
   document.getElementById('monthSelect')?.addEventListener('change', e => {
@@ -1975,6 +1991,8 @@ function bindEvents() {
       ? 'rgba(0,255,127,.2)' : 'rgba(255,255,255,.08)';
     document.getElementById('abaWdoBtn').style.color = gestaoAtivoAtual === 'WDO' 
       ? 'var(--neon)' : 'var(--muted)';
+
+    updateAberturaAssetInfo();
   }
 
   function gestaoCalcularContratos() {
@@ -2241,8 +2259,48 @@ function bindEvents() {
         panel.classList.add('active');
         mainContent.scrollTo({ top: 0, behavior: 'smooth' });
       }
+      // initialize abertura calculator when its tab is shown
+      if (tabName === 'abertura') {
+        if (typeof window.initAbertura === 'function') {
+          try { window.initAbertura(); } catch(e) { console.warn('initAbertura error', e); }
+        }
+        if (typeof window.initAberturaNews === 'function') {
+          try { window.initAberturaNews(); } catch(e) { console.warn('initAberturaNews error', e); }
+        }
+      }
       if (tabName === 'dashboard' && STATE.month) loadAll(STATE.month);
       if (isMobile) closeMobile();
+    }
+
+    function initAberturaModeSelector() {
+      const selector = document.querySelector('.abertura-mode-selector');
+      if (!selector) return;
+
+      const buttons = selector.querySelectorAll('.mode-btn');
+      const semNoticiaPanel = document.getElementById('abertura-mode-sem-noticia');
+      const comNoticiaPanel = document.getElementById('abertura-mode-com-noticia');
+
+      function setMode(mode) {
+        buttons.forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
+        if (mode === 'com-noticia') {
+          semNoticiaPanel.classList.add('hidden');
+          comNoticiaPanel.classList.remove('hidden');
+          if (typeof window.initAberturaNews === 'function') {
+            try { window.initAberturaNews(); } catch (e) { console.warn('initAberturaNews error', e); }
+          }
+        } else {
+          semNoticiaPanel.classList.remove('hidden');
+          comNoticiaPanel.classList.add('hidden');
+        }
+      }
+
+      selector.addEventListener('click', (event) => {
+        const btn = event.target.closest('.mode-btn');
+        if (!btn) return;
+        setMode(btn.dataset.mode);
+      });
+
+      setMode('sem-noticia');
     }
 
     sidebarItems.forEach(item => {
@@ -2256,4 +2314,6 @@ function bindEvents() {
     const activeTopTab = document.querySelector('nav .tab.active');
     if (activeTopTab) switchTab(activeTopTab.dataset.tab);
     else switchTab('dashboard');
+
+    initAberturaModeSelector();
   }

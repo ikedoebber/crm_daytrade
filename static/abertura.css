@@ -1,0 +1,445 @@
+:root {
+  color-scheme: dark;
+  --bg: #070b18;
+  --panel: rgba(11, 17, 35, 0.89);
+  --border: rgba(74, 130, 255, 0.16);
+  --text: #e5ebff;
+  --muted: #8da2c2;
+  --accent: #67f0ff;
+  --accent-strong: #50e3c2;
+  --positive: #72df75;
+  --negative: #ff6d8d;
+  --neutral: #d6dce8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Inter, system-ui, sans-serif;
+  background: radial-gradient(circle at top, rgba(81, 131, 255, 0.14), transparent 30%),
+              linear-gradient(180deg, #050814 0%, #070b18 100%);
+  color: var(--text);
+}
+
+.abertura-page {
+  min-height: 100vh;
+  padding: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at top, rgba(81, 131, 255, 0.16), transparent 28%),
+              linear-gradient(180deg, #040613 0%, #080d1e 100%);
+}
+
+.abertura-panel {
+  width: min(1000px, 100%);
+  padding: 32px;
+  border-radius: 32px;
+  background: rgba(10, 15, 29, 0.94);
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 40px 110px rgba(0, 0, 0, 0.28);
+}
+
+.abertura-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.eyebrow {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #5f9aff;
+}
+
+.abertura-topbar h1 {
+  margin: 0;
+  font-size: clamp(2rem, 2.5vw, 2.6rem);
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.abertura-topbar p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  max-width: 560px;
+  line-height: 1.75;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.top-actions button {
+  border: 1px solid rgba(103, 240, 255, 0.24);
+  background: rgba(103, 240, 255, 0.08);
+  color: #cce8ff;
+  border-radius: 999px;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.top-actions button:hover {
+  background: rgba(103, 240, 255, 0.16);
+}
+
+.abertura-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 24px;
+}
+
+.abertura-card {
+  padding: 26px;
+  border-radius: 26px;
+  background: rgba(11, 19, 42, 0.92);
+  border: 1px solid rgba(103, 240, 255, 0.12);
+}
+
+.card-title {
+  margin: 0 0 18px;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7bcbff;
+}
+
+.abertura-inputs {
+  display: grid;
+  gap: 16px;
+}
+
+.input-row {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.input-row label {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.input-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,0.04);
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.calc-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 14px;
+  background: rgba(84, 142, 244, 0.16);
+  color: var(--text);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.calc-btn:hover {
+  background: rgba(84, 142, 244, 0.26);
+}
+
+.input-row input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 1.1rem;
+  font-family: Inter, system-ui, sans-serif;
+  outline: none;
+}
+
+.suffix {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.resultado-card {
+  display: grid;
+  gap: 22px;
+}
+
+.result-panel {
+  padding: 20px;
+  border-radius: 24px;
+  background: rgba(7, 12, 26, 0.95);
+  border: 1px solid rgba(103, 240, 255, 0.14);
+  text-align: center;
+}
+
+.result-table {
+  margin: 28px auto 0;
+  max-width: 100%;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.table-header,
+.table-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 16px 18px;
+  align-items: center;
+}
+
+.table-header {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(150, 200, 255, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.table-row {
+  color: var(--muted);
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.table-row:nth-child(2n) {
+  background: rgba(255,255,255,0.02);
+}
+
+.table-row.active {
+  color: #e5ebff;
+  background: linear-gradient(90deg, rgba(63, 194, 255, 0.14), rgba(103, 240, 255, 0.08));
+  transform: translateX(2px);
+}
+
+.table-row.active span:last-child {
+  font-weight: 700;
+  color: #67f0ff;
+}
+
+.table-row span {
+  display: inline-block;
+}
+
+.result-metric {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.signal-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 110px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #b8daff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.signal-chip.positivo {
+  background: rgba(114, 223, 117, 0.16);
+  color: #72df75;
+}
+
+.signal-chip.negativo {
+  background: rgba(255, 109, 141, 0.16);
+  color: #ff6d8d;
+}
+
+.signal-chip.lateral {
+  background: rgba(134, 197, 255, 0.16);
+  color: #91d3ff;
+}
+
+.strategy-panel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 26px;
+}
+
+.signal-card {
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.signal-card.positive {
+  border-color: rgba(114, 223, 117, 0.18);
+}
+
+.signal-card.negative {
+  border-color: rgba(255, 109, 141, 0.18);
+}
+
+.signal-card.lateral {
+  border-color: rgba(134, 197, 255, 0.18);
+}
+
+.signal-title {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #91d3ff;
+}
+
+.signal-text {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 980px) {
+  .strategy-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formula-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.formula-text {
+  font-size: 1rem;
+  color: #ffffff;
+  font-family: Inter, system-ui, sans-serif;
+  background: rgba(255,255,255,0.04);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.result-value {
+  font-size: clamp(3.2rem, 4vw, 4.2rem);
+  font-weight: 800;
+  margin: 0;
+  color: var(--accent);
+}
+
+.result-label {
+  font-size: 0.95rem;
+  margin-top: 10px;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.result-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.stat-card {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.stat-card .stat-name {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-bottom: 8px;
+}
+
+.stat-card strong {
+  display: block;
+  font-size: 1rem;
+  color: #ffffff;
+}
+
+.abertura-breakdown {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.breakdown-card {
+  padding: 22px;
+  border-radius: 24px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.highlight-card {
+  background: linear-gradient(180deg, rgba(15, 24, 54, 0.95), rgba(0, 0, 0, 0.85));
+  border-color: rgba(103, 240, 255, 0.16);
+}
+
+.breakdown-title {
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+  color: #93d7ff;
+  letter-spacing: 0.12em;
+}
+
+.breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.breakdown-row:last-child {
+  border-bottom: none;
+}
+
+.breakdown-row span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.breakdown-row strong {
+  color: #ffffff;
+  font-size: 0.98rem;
+}
+
+.breakdown-card p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.7;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 900px) {
+  .abertura-grid, .abertura-breakdown {
+    grid-template-columns: 1fr;
+  }
+
+  .top-actions {
+    justify-content: space-between;
+    width: 100%;
+  }
+}

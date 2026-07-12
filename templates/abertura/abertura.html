@@ -1,0 +1,128 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculadora de Abertura</title>
+  <link rel="stylesheet" href="{% static 'abertura.css' %}">
+</head>
+<body>
+  <main class="abertura-page">
+    <section class="abertura-panel">
+      <div class="abertura-topbar">
+        <div>
+          <span class="eyebrow">Calculadora ao vivo</span>
+          <h1>Equação de Abertura</h1>
+          <p>Combine VIX, FEF2! e CL1! para determinar a leitura do pregão e o tipo de abertura.</p>
+        </div>
+      </div>
+
+      <div class="abertura-grid">
+        <div class="abertura-card entrada-card">
+          <div class="card-title">Entrada de Componentes</div>
+          <div class="abertura-inputs">
+            <div class="input-row">
+              <label for="vixInput">VIX</label>
+              <div class="input-controls">
+                <button type="button" class="calc-btn" data-step="-">-</button>
+                <input id="vixInput" type="text" value="-5,24" inputmode="decimal">
+                <button type="button" class="calc-btn" data-step="+">+</button>
+              </div>
+              <span class="suffix">%</span>
+            </div>
+            <div class="input-row">
+              <label for="fef2Input">FEF2!</label>
+              <div class="input-controls">
+                <button type="button" class="calc-btn" data-step="-">-</button>
+                <input id="fef2Input" type="text" value="-0,10" inputmode="decimal">
+                <button type="button" class="calc-btn" data-step="+">+</button>
+              </div>
+              <span class="suffix">%</span>
+            </div>
+            <div class="input-row">
+              <label for="cl1Input">CL1!</label>
+              <div class="input-controls">
+                <button type="button" class="calc-btn" data-step="-">-</button>
+                <input id="cl1Input" type="text" value="-0,93" inputmode="decimal">
+                <button type="button" class="calc-btn" data-step="+">+</button>
+              </div>
+              <span class="suffix">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="abertura-card resultado-card">
+          <div class="card-title">Resultado</div>
+          <div class="result-panel">
+            <div class="formula-box">
+              <div class="formula-label">Fórmula</div>
+              <div class="formula-text" id="formulaText">(-VIX) + FEF2! + CL1!</div>
+            </div>
+            <div class="result-metric">
+              <div class="result-value" id="resultValue">+4,21%</div>
+              <div class="signal-chip" id="signalChip">POSITIVO</div>
+            </div>
+            <div class="result-label" id="resultLabel">ABERTURA COMPRADORA</div>
+
+            <div class="result-table">
+              <div class="table-header">
+                <span>Variação</span>
+                <span>Tamanho da Abertura</span>
+              </div>
+              <div class="table-row" data-size="lateral"><span>< 1,5%</span><span>Lateral</span></div>
+              <div class="table-row" data-size="fraca"><span>1,5% – 2,5%</span><span>Fraca</span></div>
+              <div class="table-row" data-size="moderada"><span>2,5% – 4,5%</span><span>Moderada</span></div>
+              <div class="table-row" data-size="forte"><span>> 4,5%</span><span>Forte</span></div>
+            </div>
+          </div>
+
+          <div class="result-stats">
+            <div class="stat-card">
+              <span class="stat-name">Direção</span>
+              <strong id="directionText">Compradora</strong>
+            </div>
+            <div class="stat-card">
+              <span class="stat-name">Intensidade</span>
+              <strong id="intensityText">Moderada</strong>
+            </div>
+            <div class="stat-card">
+              <span class="stat-name">Tamanho</span>
+              <strong id="rangeText">Forte</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="abertura-breakdown">
+        <div class="breakdown-card">
+          <div class="breakdown-title">Componentes</div>
+          <div class="breakdown-row"><span>VIX</span><strong id="vixDisplay">-5,24%</strong></div>
+          <div class="breakdown-row"><span>FEF2!</span><strong id="fef2Display">-0,10%</strong></div>
+          <div class="breakdown-row"><span>CL1!</span><strong id="cl1Display">-0,93%</strong></div>
+        </div>
+        <div class="breakdown-card highlight-card">
+          <div class="breakdown-title">Interpretação</div>
+          <p id="interpretationText">Abertura compradora com potencial de movimento inicial no sentido de alta. Busque áreas de suporte abaixo da abertura.</p>
+        </div>
+      </div>
+
+      <div class="strategy-panel">
+        <div class="signal-card positive">
+          <div class="signal-title">POSITIVO → ABERTURA COMPRADORA</div>
+          <div class="signal-text">Buscar regiões de suporte abaixo da abertura.</div>
+        </div>
+        <div class="signal-card negative">
+          <div class="signal-title">NEGATIVO → ABERTURA VENDEDORA</div>
+          <div class="signal-text">Buscar regiões de resistência acima da abertura.</div>
+        </div>
+        <div class="signal-card lateral">
+          <div class="signal-title">LATERAL → EXTREMIDADES</div>
+          <div class="signal-text">Compra no suporte, venda na resistência. Alvos curtos.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="{% static 'abertura.js' %}"></script>
+</body>
+</html>

@@ -16,6 +16,7 @@ INSTALLED_APPS = [
     'accounts',
     'accounts.planilha',
     'ai',
+    'abertura',
 ]
 
 MIDDLEWARE = [
