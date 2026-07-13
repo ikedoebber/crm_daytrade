@@ -1952,7 +1952,6 @@ function bindEvents() {
   document.getElementById('saveDashboardBtn')?.addEventListener('click', () => saveConfig('saveDashboardStatus'));
   document.getElementById('saveOpsBtn')?.addEventListener('click', saveOperacoes);
   document.getElementById('addOpsDetalhadaRow')?.addEventListener('click', addNewOpsRow);
-  document.getElementById('saveRelatoriosBtn')?.addEventListener('click', () => saveConfig('saveRelatoriosStatus'));
   document.getElementById('savePlanoBtn')?.addEventListener('click', savePlano);
   const reportMaxContratosInput = document.getElementById('cfg_plano_maxentradas_report');
   if (reportMaxContratosInput) {
@@ -2125,6 +2124,49 @@ function bindEvents() {
   // Inicializa com valores padrão
   gestaoAtualizarAtivoDisplay();
   gestaoCalcularContratos();
+
+  // ─── AUTO-SAVE GESTÃO DE RISCO ────────────────────
+  let gestaoAutoSaveTimeout;
+  
+  async function gestaoAutoSave() {
+    if (!STATE.month) return;
+    
+    const statusEl = document.getElementById('gestaoAutoSaveStatus');
+    if (statusEl) statusEl.textContent = '⏳ Salvando...';
+    
+    try {
+      const data = getConfigFromInputs();
+      await API.post('/api/config/upsert/', data);
+      if (statusEl) statusEl.textContent = '✓ Salvo';
+      
+      // Reset status após 2s
+      setTimeout(() => {
+        if (statusEl) statusEl.textContent = '✓ Salvo';
+      }, 2000);
+    } catch (e) {
+      console.error('Erro ao auto-salvar:', e);
+      if (statusEl) statusEl.textContent = '✗ Erro';
+    }
+  }
+
+  // Listeners para auto-save com debounce
+  const gestaoAutoSaveInputs = [
+    'cfg_plano_meta_aprovacao',
+    'cfg_plano_perda_max_total', 
+    'cfg_plano_perda_diaria_aprovacao',
+    'gestaoRiscoFinanceiro',
+    'gestaoStopPontos'
+  ];
+
+  gestaoAutoSaveInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', () => {
+        clearTimeout(gestaoAutoSaveTimeout);
+        gestaoAutoSaveTimeout = setTimeout(gestaoAutoSave, 1000);
+      });
+    }
+  });
 
   // ─── Refresh ao voltar para a aba ou ao focar a janela ─────
   const shouldRefreshDashboard = () => {

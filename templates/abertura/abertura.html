@@ -9,16 +9,24 @@
 </head>
 <body>
   <main class="abertura-page">
+    <!-- Sidebar Index Selector -->
+    <aside class="abertura-sidebar">
+      <div class="sidebar-content">
+        <span class="eyebrow">CALCULADORA</span>
+        <h1>MÍM Índice</h1>
+      </div>
+    </aside>
+
     <section class="abertura-panel">
-      <div class="abertura-topbar">
-        <div>
-          <span class="eyebrow">Calculadora ao vivo</span>
-          <h1>Equação de Abertura</h1>
-          <p>Combine VIX, FEF2! e CL1! para determinar a leitura do pregão e o tipo de abertura.</p>
-        </div>
+      <!-- Tabs -->
+      <div class="tabs-container">
+        <button class="tab-btn active" data-tab="sem-noticia">DIA SEM NOTÍCIA</button>
+        <button class="tab-btn" data-tab="com-noticia">DIA COM NOTÍCIA</button>
       </div>
 
+      <!-- Main Grid -->
       <div class="abertura-grid">
+        <!-- Left Column: Entrada -->
         <div class="abertura-card entrada-card">
           <div class="card-title">Entrada de Componentes</div>
           <div class="abertura-inputs">
@@ -52,6 +60,7 @@
           </div>
         </div>
 
+        <!-- Right Column: Resultado -->
         <div class="abertura-card resultado-card">
           <div class="card-title">Resultado</div>
           <div class="result-panel">
@@ -60,10 +69,10 @@
               <div class="formula-text" id="formulaText">(-VIX) + FEF2! + CL1!</div>
             </div>
             <div class="result-metric">
-              <div class="result-value" id="resultValue">+4,21%</div>
-              <div class="signal-chip" id="signalChip">POSITIVO</div>
+              <div class="result-value" id="resultValue">0,00%</div>
+              <div class="signal-chip" id="signalChip">NEUTRO</div>
             </div>
-            <div class="result-label" id="resultLabel">ABERTURA COMPRADORA</div>
+            <div class="result-label" id="resultLabel">ABERTURA NEUTRA</div>
 
             <div class="result-table">
               <div class="table-header">
@@ -80,7 +89,7 @@
           <div class="result-stats">
             <div class="stat-card">
               <span class="stat-name">Direção</span>
-              <strong id="directionText">Compradora</strong>
+              <strong id="directionText">Neutra</strong>
             </div>
             <div class="stat-card">
               <span class="stat-name">Intensidade</span>
@@ -94,12 +103,13 @@
         </div>
       </div>
 
+      <!-- Breakdown -->
       <div class="abertura-breakdown">
         <div class="breakdown-card">
           <div class="breakdown-title">Componentes</div>
-          <div class="breakdown-row"><span>VIX</span><strong id="vixDisplay">-5,24%</strong></div>
-          <div class="breakdown-row"><span>FEF2!</span><strong id="fef2Display">-0,10%</strong></div>
-          <div class="breakdown-row"><span>CL1!</span><strong id="cl1Display">-0,93%</strong></div>
+          <div class="breakdown-row"><span>VIX</span><strong id="vixDisplay">0,00%</strong></div>
+          <div class="breakdown-row"><span>FEF2!</span><strong id="fef2Display">0,00%</strong></div>
+          <div class="breakdown-row"><span>CL1!</span><strong id="cl1Display">0,00%</strong></div>
         </div>
         <div class="breakdown-card highlight-card">
           <div class="breakdown-title">Interpretação</div>
@@ -107,6 +117,7 @@
         </div>
       </div>
 
+      <!-- Strategy Panel -->
       <div class="strategy-panel">
         <div class="signal-card positive">
           <div class="signal-title">POSITIVO → ABERTURA COMPRADORA</div>

@@ -872,118 +872,127 @@ window.addEventListener('load', () => {
   <div id="tab-gestao_risco" class="tab-content">
     
     <div class="sep"></div>
-        <div class="section-title">Gestão de Risco</div>
-    <div class="grid-3">
+    
+    <!-- Header com Status de Auto-save -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div class="section-title" style="margin:0">⚖️ Gestão de Risco</div>
+      <div id="gestaoAutoSaveStatus" style="font-size:12px;color:var(--muted);font-family:var(--mono)">✓ Salvo</div>
+    </div>
+
+    <!-- Metas e Limites -->
+    <div class="grid-3" style="margin-bottom:24px">
       <div class="card">
-        <div class="card-label">Meta líquida aprovação</div>
-        <input id="cfg_plano_meta_aprovacao" type="number" class="cfg-input" placeholder="1600">
-        <div class="card-sub" style="margin-top:4px">Objetivo de aprovação</div>
+        <div class="card-label">Meta Aprovação</div>
+        <input id="cfg_plano_meta_aprovacao" type="number" class="cfg-input gestao-auto-save" placeholder="1600">
+        <div class="card-sub">Objetivo de aprovação</div>
       </div>
       <div class="card">
-        <div class="card-label">Perda máxima total</div>
-        <input id="cfg_plano_perda_max_total" type="number" class="cfg-input" placeholder="2750">
-        <div class="card-sub" style="margin-top:4px">Stop loss total aprovado</div>
+        <div class="card-label">Perda Máxima Total</div>
+        <input id="cfg_plano_perda_max_total" type="number" class="cfg-input gestao-auto-save" placeholder="2750">
+        <div class="card-sub">Stop loss total</div>
       </div>
       <div class="card">
-        <div class="card-label">Perda diária após aprovação</div>
-        <input id="cfg_plano_perda_diaria_aprovacao" type="number" class="cfg-input" placeholder="825">
-        <div class="card-sub" style="margin-top:4px">Limite diário após aprovado</div>
+        <div class="card-label">Perda Diária Pós-Aprovação</div>
+        <input id="cfg_plano_perda_diaria_aprovacao" type="number" class="cfg-input gestao-auto-save" placeholder="825">
+        <div class="card-sub">Limite diário após aprovado</div>
       </div>
       <div class="card">
         <div class="card-label">Projeção Final</div>
         <div class="card-value blue" id="planoBancaFinal">—</div>
-        <div class="card-sub">Banca Projetada do Mês</div>
+        <div class="card-sub">Banca Projetada</div>
       </div>
     </div>
 
-    <div class="section-title">🧮 Cálculo de Risco</div>
-    <div style="background:rgba(0,255,127,.08);border-left:3px solid var(--neon);padding:12px;border-radius:4px;margin-bottom:20px">
+    <!-- Informação -->
+    <div style="background:rgba(0,255,127,.08);border-left:3px solid var(--neon);padding:14px;border-radius:6px;margin-bottom:24px">
       <p style="margin:0;font-size:12px;color:var(--text);line-height:1.6">
-        <strong>Dimensione sua posição com precisão.</strong> O risco financeiro permanece constante;<br>o tamanho da posição se ajusta à distância do stop.
+        <strong>📌 Dimensione com precisão.</strong> O risco financeiro permanece <strong>constante</strong>; o tamanho da posição se ajusta à distância do stop. Essa é a base do position sizing profissional.
       </p>
     </div>
 
-    <!-- Abas para Ativo (WIN/WDO) -->
-    <div style="display:flex;gap:8px;margin-bottom:20px">
-      <button type="button" id="abaWinBtn" class="btn-tab-ativo active" data-ativo="WIN" style="flex:1;padding:10px;border:none;background:rgba(0,255,127,.2);color:var(--neon);font-weight:600;border-radius:6px;cursor:pointer;font-size:12px;font-family:var(--mono)">
-        WIN
+    <!-- Seletor de Ativo -->
+    <div style="display:flex;gap:8px;margin-bottom:24px">
+      <button type="button" id="abaWinBtn" class="btn-tab-ativo active" data-ativo="WIN" style="flex:1;padding:12px;border:none;background:rgba(0,255,127,.2);color:var(--neon);font-weight:600;border-radius:8px;cursor:pointer;font-size:13px;font-family:var(--mono);transition:all .2s">
+        📊 WIN
       </button>
-      <button type="button" id="abaWdoBtn" class="btn-tab-ativo" data-ativo="WDO" style="flex:1;padding:10px;border:none;background:rgba(255,255,255,.08);color:var(--muted);font-weight:600;border-radius:6px;cursor:pointer;font-size:12px;font-family:var(--mono)">
-        WDO
+      <button type="button" id="abaWdoBtn" class="btn-tab-ativo" data-ativo="WDO" style="flex:1;padding:12px;border:none;background:rgba(255,255,255,.08);color:var(--muted);font-weight:600;border-radius:8px;cursor:pointer;font-size:13px;font-family:var(--mono);transition:all .2s">
+        📊 WDO
       </button>
     </div>
 
-    <div class="grid-2">
-      <!-- PARÂMETROS -->
+    <!-- Calculadora de Risco -->
+    <div class="grid-2" style="margin-bottom:24px">
+      <!-- Inputs -->
       <div class="plano-card">
         <div class="section-title" style="margin-top:0;font-size:14px">📊 Parâmetros</div>
         <div class="plano-item">
           <div class="plano-diamond">▸</div>
           <div class="plano-text">
-            <strong>Ativo</strong><br>
-            <span id="gestaoAtivoDisplay" style="font-family:var(--mono);color:var(--neon);font-weight:600">WIN</span>
+            <strong>Ativo:</strong><br>
+            <span id="gestaoAtivoDisplay" style="font-family:var(--mono);color:var(--neon);font-weight:600;font-size:13px">WIN</span>
           </div>
         </div>
         <div class="plano-item">
           <div class="plano-diamond">▸</div>
           <div class="plano-text">
-            <strong>Risco Financeiro (R$)</strong><br>
-            <input id="gestaoRiscoFinanceiro" type="number" class="cfg-input" placeholder="500" value="500">
+            <strong>Risco Financeiro (R$):</strong><br>
+            <input id="gestaoRiscoFinanceiro" type="number" class="cfg-input gestao-auto-save" placeholder="500" value="500">
           </div>
         </div>
         <div class="plano-item">
           <div class="plano-diamond">▸</div>
           <div class="plano-text">
-            <strong>Stop (pontos)</strong><br>
-            <input id="gestaoStopPontos" type="number" class="cfg-input" placeholder="150" value="150">
+            <strong>Stop (pontos):</strong><br>
+            <input id="gestaoStopPontos" type="number" class="cfg-input gestao-auto-save" placeholder="150" value="150">
           </div>
         </div>
         <div style="margin-top:16px">
-          <button type="button" id="calcularRiscoBtn" class="btn-save" style="width:100%">🧮 Calcular</button>
+          <button type="button" id="calcularRiscoBtn" class="btn-save" style="width:100%;background:rgba(0,255,127,.2);color:var(--neon)">🧮 Calcular Agora</button>
         </div>
       </div>
 
-      <!-- RESULTADO -->
+      <!-- Resultado -->
       <div class="plano-card">
-        <div class="section-title" style="margin-top:0;font-size:14px">✅ Resultado</div>
-        <div style="margin-bottom:20px;text-align:center;padding:16px;background:rgba(0,200,122,.1);border-radius:6px">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Contratos Recomendados</div>
-          <div id="gestaoContratoRec" style="font-size:48px;font-weight:700;color:var(--neon);font-family:var(--mono)">—</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:4px">
-            <span id="gestaoExatoMsg"></span>
+        <div class="section-title" style="margin-top:0;font-size:14px">✅ Resultado do Cálculo</div>
+        <div style="margin-bottom:16px;text-align:center;padding:20px;background:rgba(0,200,122,.1);border:1px solid rgba(0,255,127,.2);border-radius:8px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Contratos Recomendados</div>
+          <div id="gestaoContratoRec" style="font-size:52px;font-weight:800;color:var(--neon);font-family:var(--mono);letter-spacing:2px">—</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:6px">
+            <span id="gestaoExatoMsg" style="font-weight:500"></span>
           </div>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-          <div style="padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;text-align:center">
-            <div style="font-size:9px;color:var(--muted);margin-bottom:2px">Risco por Contrato</div>
-            <div id="gestaoRiscoPorContrato" style="font-size:14px;font-weight:600;color:var(--neon2);font-family:var(--mono)">—</div>
+          <div style="padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;text-align:center">
+            <div style="font-size:10px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px">Risco/Contrato</div>
+            <div id="gestaoRiscoPorContrato" style="font-size:16px;font-weight:700;color:var(--neon2);font-family:var(--mono)">—</div>
           </div>
-          <div style="padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;text-align:center">
-            <div style="font-size:9px;color:var(--muted);margin-bottom:2px">Risco Efetivo</div>
-            <div id="gestaoRiscoEfetivo" style="font-size:14px;font-weight:600;color:var(--neon2);font-family:var(--mono)">—</div>
+          <div style="padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;text-align:center">
+            <div style="font-size:10px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px">Risco Efetivo</div>
+            <div id="gestaoRiscoEfetivo" style="font-size:16px;font-weight:700;color:var(--neon2);font-family:var(--mono)">—</div>
           </div>
         </div>
 
-        <div style="padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;text-align:center;margin-bottom:12px">
-          <div style="font-size:9px;color:var(--muted);margin-bottom:2px">Economia de Risco</div>
-          <div id="gestaoEconomiaRisco" style="font-size:12px;font-weight:600;color:var(--neon2);font-family:var(--mono)">—</div>
+        <div style="padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;text-align:center;margin-bottom:12px">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px">Economia de Risco</div>
+          <div id="gestaoEconomiaRisco" style="font-size:16px;font-weight:700;color:var(--neon2);font-family:var(--mono)">—</div>
         </div>
 
-        <div id="gestaoAlertaMsg" style="padding:10px;background:rgba(255,100,100,.1);border:1px solid rgba(255,100,100,.3);border-radius:6px;display:none;text-align:center">
-          <div style="font-size:10px;color:#ff6464;font-weight:600" id="gestaoAlertaTxt">⚠️ Ultrapassa o limite de risco em R$ 10.00</div>
+        <div id="gestaoAlertaMsg" style="padding:12px;background:rgba(255,100,100,.1);border:1px solid rgba(255,100,100,.3);border-radius:6px;display:none;text-align:center">
+          <div style="font-size:11px;color:#ff6464;font-weight:600" id="gestaoAlertaTxt">⚠️ Ultrapassa limite</div>
         </div>
       </div>
     </div>
 
-        <div class="section-title">📏 Princípios Fundamentais de Trading</div>
-    <div class="grid-2" style="margin-bottom:24px;">
+    <!-- Princípios -->
+    <div class="section-title" style="margin-bottom:12px">📏 Princípios de Position Sizing</div>
+    <div class="grid-2" style="margin-bottom:24px">
       <div class="plano-card">
         <div class="section-title" style="margin-top:0;font-size:14px">⭕ Princípio Fundamental</div>
         <div style="padding:12px;background:rgba(0,255,127,.08);border-left:3px solid var(--neon);border-radius:4px;margin-bottom:12px">
-          <p style="font-size:12px;color:var(--text);margin:0 0 8px 0;line-height:1.6;">O risco financeiro deve permanecer <strong>constante</strong>, o tamanho da posição é que se ajusta à distância do stop. Essa é uma das bases do <strong>position sizing</strong>, amplamente utilizada por gestores institucionais e traders profissionais.</p>
+          <p style="font-size:12px;color:var(--text);margin:0 0 8px 0;line-height:1.6;">O risco financeiro permanece <strong>constante</strong>. O tamanho da posição se ajusta à distância do stop.</p>
         </div>
-        <div style="margin-bottom:8px">
+        <div style="margin-bottom:0">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <span style="color:var(--neon);font-weight:600;font-size:12px">↗️ Stop maior → Lote menor</span>
           </div>
@@ -994,40 +1003,26 @@ window.addEventListener('load', () => {
       </div>
 
       <div class="plano-card">
-        <div class="section-title" style="margin-top:0;font-size:14px">⚠️ Tradução Prática</div>
-        <div style="margin-bottom:12px">
-          <div style="padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;margin-bottom:8px">
-            <div style="font-size:11px;color:var(--muted);font-style:italic;margin-bottom:4px">"Quero pegar mais pontos"</div>
-            <div style="display:flex;align-items:flex-start;gap:6px">
-              <span style="color:#00ff7f;font-weight:600;margin-top:2px">✅</span>
-              <span style="font-size:11px;color:var(--text)">"Então opero com lote menor para manter o mesmo risco."</span>
-            </div>
+        <div class="section-title" style="margin-top:0;font-size:14px">⚠️ Aplicação Prática</div>
+        <div style="margin-bottom:0">
+          <div style="padding:10px;background:rgba(0,255,127,.08);border-left:2px solid #00ff7f;border-radius:4px;margin-bottom:8px">
+            <div style="font-size:11px;color:var(--text)"><strong>✅ Correto:</strong> "Lote menor mantém risco fixo com stop maior"</div>
           </div>
-          <div style="padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;margin-bottom:8px">
-            <div style="font-size:11px;color:var(--muted);font-style:italic;margin-bottom:4px">"Quero aumentar o lote"</div>
-            <div style="display:flex;align-items:flex-start;gap:6px">
-              <span style="color:#00ff7f;font-weight:600;margin-top:2px">✅</span>
-              <span style="font-size:11px;color:var(--text)">"Seu stop precisa ser mais curto, desde que tecnicamente válido."</span>
-            </div>
-          </div>
-          <div style="padding:10px;background:rgba(255,100,100,.08);border:1px solid rgba(255,100,100,.3);border-radius:6px">
-            <div style="display:flex;align-items:flex-start;gap:6px">
-              <span style="color:#ff6464;font-weight:600;margin-top:1px">⚠️</span>
-              <span style="font-size:11px;color:var(--text)">O stop nunca deve ser ajustado apenas para aumentar o lote. Ele deve respeitar a <strong>invalidação técnica</strong> da estrutura de mercado.</span>
-            </div>
+          <div style="padding:10px;background:rgba(255,100,100,.08);border-left:2px solid #ff6464;border-radius:4px">
+            <div style="font-size:11px;color:var(--text)"><strong>❌ Errado:</strong> "Aumentar lote sem validação técnica do stop"</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- TABELA PRÁTICA -->
-    <div class="plano-card" style="margin-top:20px">
+    <!-- Tabela Prática -->
+    <div class="plano-card">
       <div class="section-title" style="margin-top:0;font-size:14px">📋 Tabela Prática – Risco Fixo de R$ <span id="gestaoTabelaRiscoLabel">500</span></div>
       <div class="table-wrap" style="margin-top:12px">
         <table id="gestaoTabelaPratica" style="font-size:11px">
           <thead>
             <tr>
-              <th>Stop (pontos)</th>
+              <th>Stop (pts)</th>
               <th>Risco/Contrato (R$)</th>
               <th>Contratos</th>
               <th>Risco Total (R$)</th>
@@ -1037,12 +1032,6 @@ window.addEventListener('load', () => {
           <tbody id="gestaoTabelaBody"></tbody>
         </table>
       </div>
-    </div>
-
-
-    <div style="display:flex;justify-content:flex-end;margin-bottom:24px;">
-      <button type="button" id="saveRelatoriosBtn" class="btn-save">💾 Salvar Configurações de Risco</button>
-      <span id="saveRelatoriosStatus" class="save-status"></span>
     </div>
 
     <div class="sep"></div>

@@ -367,7 +367,7 @@ header {
   background: rgba(7, 12, 26, 0.97);
   border-bottom: 1px solid rgba(103,240,255,0.14);
   backdrop-filter: blur(24px);
-  padding: 0 28px;
+  padding: 0 12px;
 }
 
 header::before {
@@ -560,9 +560,9 @@ nav {
 
 /* ─── CONTENT CONTAINER ───────────────────────────── */
 .container {
-  max-width: 1480px;
-  margin: 0 auto;
-  padding: 28px 32px 64px;
+  width: 100%;
+  margin: 0;
+  padding: 28px 12px 64px;
 }
 
 /* ─── TAB CONTENT ─────────────────────────────────── */
@@ -2515,6 +2515,20 @@ textarea::placeholder { color: var(--t-dim); }
 
 #tab-gestao_risco {
   /* Espaçamento geral melhorado */
+}
+
+/* Status de Auto-save */
+#gestaoAutoSaveStatus {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: color 0.3s ease;
+}
+
+#gestaoAutoSaveStatus[style*="color:var(--neon)"] {
+  color: var(--neon);
 }
 
 /* Títulos da seção - aumentado */

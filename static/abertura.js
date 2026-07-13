@@ -131,7 +131,7 @@ function setupInput(input) {
 
   input.value = normalizeInput(input.value);
 
-  const row = input.closest('.abertura-input-row');
+  const row = input.closest('.input-row');
   if (row) {
     row.querySelectorAll('.calc-btn').forEach((button) => {
       if (button.__ab_input_listened) return;
@@ -158,26 +158,32 @@ function setupInput(input) {
   });
 }
 
-function initAbertura() {
-  const tab = document.getElementById('tab-abertura');
-  if (!tab) {
-    console.debug('abertura.initAbertura: missing tab-abertura');
-    return;
-  }
+function setupTabs() {
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  tabButtons.forEach(button => {
+    if (button.__tab_listened) return;
+    button.__tab_listened = true;
+    button.addEventListener('click', () => {
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+    });
+  });
+}
 
-  elements.vixInput = tab.querySelector('#vixInput');
-  elements.fef2Input = tab.querySelector('#fef2Input');
-  elements.cl1Input = tab.querySelector('#cl1Input');
-  elements.resultValue = tab.querySelector('#resultValue');
-  elements.resultLabel = tab.querySelector('#resultLabel');
-  elements.signalChip = tab.querySelector('#signalChip');
-  elements.directionText = tab.querySelector('#directionText');
-  elements.intensityText = tab.querySelector('#intensityText');
-  elements.rangeText = tab.querySelector('#rangeText');
-  elements.vixDisplay = tab.querySelector('#vixDisplay');
-  elements.fef2Display = tab.querySelector('#fef2Display');
-  elements.cl1Display = tab.querySelector('#cl1Display');
-  elements.interpretationText = tab.querySelector('#interpretationText');
+function initAbertura() {
+  elements.vixInput = document.querySelector('#vixInput');
+  elements.fef2Input = document.querySelector('#fef2Input');
+  elements.cl1Input = document.querySelector('#cl1Input');
+  elements.resultValue = document.querySelector('#resultValue');
+  elements.resultLabel = document.querySelector('#resultLabel');
+  elements.signalChip = document.querySelector('#signalChip');
+  elements.directionText = document.querySelector('#directionText');
+  elements.intensityText = document.querySelector('#intensityText');
+  elements.rangeText = document.querySelector('#rangeText');
+  elements.vixDisplay = document.querySelector('#vixDisplay');
+  elements.fef2Display = document.querySelector('#fef2Display');
+  elements.cl1Display = document.querySelector('#cl1Display');
+  elements.interpretationText = document.querySelector('#interpretationText');
 
   if (!elements.vixInput || !elements.fef2Input || !elements.cl1Input) {
     console.debug('abertura.initAbertura: missing required inputs', {
@@ -197,6 +203,7 @@ function initAbertura() {
     setupInput(input);
   });
 
+  setupTabs();
   calculate();
 }
 
